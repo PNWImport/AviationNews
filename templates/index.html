@@ -536,6 +536,82 @@
       .stat-value { font-size: 2rem; }
       .listWrap { height: 60vh; }
     }
+
+    @media (max-width: 768px) {
+      /* Mobile optimizations */
+      .container { padding: 12px; margin: 12px auto; }
+      header { padding: 16px; border-radius: 24px; }
+      header h1 { font-size: 1.1rem; }
+      .subtitle { font-size: .85rem; }
+
+      /* Hero section mobile */
+      .hero-section { padding: 24px 16px !important; }
+      .hero-section h2 { font-size: 1.4rem !important; }
+      .hero-section p { font-size: .9rem !important; }
+
+      /* Stats grid - stack on mobile */
+      .dashboard-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 12px !important; }
+      .stat { padding: 14px; }
+      .stat-label { font-size: .75rem; }
+      .stat-value { font-size: 2rem !important; }
+      .stat p { font-size: .7rem; }
+
+      /* Action bar mobile */
+      .input { font-size: .9rem !important; padding: 10px 12px !important; }
+      #search { min-width: 100% !important; margin-bottom: 8px; }
+
+      /* Buttons smaller on mobile */
+      .btn { padding: 8px 12px; font-size: .85rem; }
+      .filter-btn { padding: 6px 10px; font-size: .8rem; }
+      .sort-btn { padding: 6px 10px; font-size: .8rem; }
+
+      /* Hide button text, show icons only on small screens */
+      .filter-btn span, .sort-btn span { display: none; }
+
+      /* Chart mini preview - hide on very small screens */
+      .panel.chartBox[style*="width:auto"] { display: none !important; }
+
+      /* Selection counter */
+      #selectionCounter { flex-direction: column; gap: 4px; padding: 8px; }
+      #selectionCounter .btn { padding: 4px 8px; font-size: .75rem; }
+
+      /* Toast notifications smaller */
+      .toast { min-width: 280px; max-width: calc(100vw - 32px); font-size: .85rem; }
+
+      /* Tabs */
+      .tabs { gap: 4px; }
+      .tab { padding: 8px 12px; font-size: .85rem; }
+
+      /* Panel padding */
+      .panel { padding: 12px; border-radius: 12px; }
+    }
+
+    @media (max-width: 480px) {
+      /* Very small phones */
+      .dashboard-grid { grid-template-columns: 1fr !important; }
+      .stat-value { font-size: 1.8rem !important; }
+
+      /* Hero even more compact */
+      .hero-section h2 { font-size: 1.2rem !important; }
+      .hero-section p { font-size: .85rem !important; margin-bottom: 16px !important; }
+
+      /* Stack input and button */
+      .hero-section > div > div:first-child { flex-direction: column; }
+      #emailUrl { width: 100%; }
+      #ingestBtn { width: 100%; justify-content: center; }
+
+      /* Action bar full width */
+      .filters { width: 100%; justify-content: space-between; }
+      .filter-btn { flex: 1; }
+
+      /* Font sizes */
+      h2 { font-size: 1.2rem; }
+      h3 { font-size: 1.1rem; }
+
+      /* Item list more compact */
+      .item { padding: 10px; gap: 8px; }
+      .icon { width: 36px; height: 36px; }
+    }
   </style>
 </head>
 <body class="dark">
@@ -655,16 +731,16 @@
 
           <div style="display:flex;gap:6px;flex-wrap:wrap">
             <button class="filter-btn active" data-filter="all" title="Show all articles">
-              <i class="fa-solid fa-border-all"></i> All
+              <i class="fa-solid fa-border-all"></i><span>&nbsp;All</span>
             </button>
             <button class="filter-btn" data-filter="positive" title="Show positive articles">
-              <i class="fa-solid fa-thumbs-up"></i> Positive
+              <i class="fa-solid fa-thumbs-up"></i><span>&nbsp;Positive</span>
             </button>
             <button class="filter-btn" data-filter="neutral" title="Show neutral articles">
-              <i class="fa-solid fa-minus"></i> Neutral
+              <i class="fa-solid fa-minus"></i><span>&nbsp;Neutral</span>
             </button>
             <button class="filter-btn" data-filter="negative" title="Show negative articles">
-              <i class="fa-solid fa-thumbs-down"></i> Negative
+              <i class="fa-solid fa-thumbs-down"></i><span>&nbsp;Negative</span>
             </button>
           </div>
 
@@ -692,16 +768,16 @@
         </div>
 
         <!-- Sort Controls -->
-        <div style="display:flex;gap:8px;margin-bottom:12px;padding:0 4px">
+        <div style="display:flex;gap:8px;margin-bottom:12px;padding:0 4px;flex-wrap:wrap">
           <span style="font-size:.85rem;color:var(--muted);display:flex;align-items:center">Sort by:</span>
           <button class="sort-btn active" data-sort="date-desc">
-            <i class="fa-solid fa-clock"></i> Latest First
+            <i class="fa-solid fa-clock"></i><span>&nbsp;Latest First</span>
           </button>
           <button class="sort-btn" data-sort="date-asc">
-            <i class="fa-solid fa-clock-rotate-left"></i> Oldest First
+            <i class="fa-solid fa-clock-rotate-left"></i><span>&nbsp;Oldest First</span>
           </button>
           <button class="sort-btn" data-sort="alpha-asc">
-            <i class="fa-solid fa-arrow-down-a-z"></i> A-Z
+            <i class="fa-solid fa-arrow-down-a-z"></i><span>&nbsp;A-Z</span>
           </button>
         </div>
 
