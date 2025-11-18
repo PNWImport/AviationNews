@@ -1,8 +1,17 @@
 """
-Aviation Intelligence Hub - Flask Backend (FIXED VERSION)
-Critical fixes applied:
+Aviation Intelligence Hub - Flask Backend (SECURED VERSION)
+Security enhancements applied:
+1. Input validation and sanitization
+2. SSRF protection with URL validation
+3. Rate limiting on API endpoints
+4. Security headers (CSP, HSTS, etc.)
+5. Centralized configuration management
+6. Enhanced error handling and logging
+7. Removed hardcoded secrets (use environment variables)
+
+Original fixes:
 1. Fixed HTML escaping infinite loop
-2. Fixed startswith() syntax 
+2. Fixed startswith() syntax
 3. Improved thread-safe database handling
 4. Better error handling in SSE
 """
@@ -29,39 +38,104 @@ import requests
 from bs4 import BeautifulSoup, Comment
 from textblob import TextBlob
 from flask import Flask, render_template, request, jsonify, send_file, g, Response, stream_with_context
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from flask_talisman import Talisman
+
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv()
+
+# Import our security and configuration modules
+from config import config
+from security import URLValidator, InputValidator, SecurityError, get_client_ip
 
 # ---------------- Configuration ----------------
-DATABASE = os.environ.get("AIH_DB", "emails.db")
-REQUEST_TIMEOUT = float(os.environ.get("AIH_REQ_TIMEOUT", "30"))
-AUTO_REFRESH_INTERVAL = int(os.environ.get("AUTO_REFRESH_INTERVAL", "300"))
+# Validate configuration on startup
+try:
+    config.validate()
+    log_level = getattr(logging, config.LOG_LEVEL, logging.INFO)
+    logging.basicConfig(level=log_level, format=config.LOG_FORMAT)
+    log = logging.getLogger("aih")
+    log.info("Configuration validated successfully")
+    log.info(f"Configuration: {config.get_summary()}")
+except ValueError as e:
+    logging.basicConfig(level=logging.ERROR, format=config.LOG_FORMAT)
+    log = logging.getLogger("aih")
+    log.error(f"Configuration validation failed: {e}")
+    raise
 
-CF_WORKER_URL = os.environ.get("CF_WORKER_URL", "https://fragrant-heart-8e59.pnwpokemonelite.workers.dev")
-CF_WORKER_TOKEN = os.environ.get("CF_WORKER_TOKEN", "super-secret-123!")
+# Initialize URL validator with domain restrictions
+url_validator = URLValidator(
+    allowed_domains=config.ALLOWED_DOMAINS,
+    blocked_domains=config.BLOCKED_DOMAINS
+)
 
-MAX_CONTENT_CHARS_TO_WORKER = int(os.environ.get("MAX_CONTENT_CHARS_TO_WORKER", "3000"))
-WORKER_BATCH_SIZE = int(os.environ.get("WORKER_BATCH_SIZE", "12"))
-MAX_ITEM_TOASTS = int(os.environ.get("MAX_ITEM_TOASTS", "5"))
-MAX_FEED_WORKERS = int(os.environ.get("MAX_FEED_WORKERS", "5"))
-WORKER_TIMEOUT = float(os.environ.get("WORKER_TIMEOUT", "120"))
+# Message queue for SSE
+sse_message_queue = queue.Queue(maxsize=config.SSE_QUEUE_MAXSIZE)
 
-sse_message_queue = queue.Queue(maxsize=100)
-
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-log = logging.getLogger("aih")
-
+# Thread safety lock
 state_lock = threading.Lock()
 
+# Initialize Flask app
 app = Flask(__name__, template_folder="templates")
+app.config['SECRET_KEY'] = config.SECRET_KEY
+
+# Initialize rate limiter
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=[config.RATE_LIMIT_DEFAULT] if config.RATE_LIMIT_ENABLED else [],
+    storage_uri="memory://",
+)
+
+# Initialize security headers (Talisman)
+# For local development, we're lenient with CSP
+# When deploying to production, tighten these policies
+csp = {
+    'default-src': "'self'",
+    'script-src': [
+        "'self'",
+        "'unsafe-inline'",  # Required for HTMX and inline scripts
+        "https://cdn.jsdelivr.net",
+        "https://cdnjs.cloudflare.com",
+    ],
+    'style-src': [
+        "'self'",
+        "'unsafe-inline'",  # Required for inline styles
+        "https://cdnjs.cloudflare.com",
+    ],
+    'img-src': "'self' data: https:",
+    'font-src': [
+        "'self'",
+        "https://cdnjs.cloudflare.com",
+    ],
+    'connect-src': "'self'",
+}
+
+# Only enable Talisman in production or if explicitly enabled
+if not config.DEBUG or os.environ.get("FORCE_HTTPS") == "true":
+    Talisman(
+        app,
+        force_https=False,  # Since we're behind a reverse proxy for local dev
+        content_security_policy=csp,
+        content_security_policy_nonce_in=['script-src']
+    )
+    log.info("Security headers (Talisman) enabled")
+else:
+    log.info("Running in debug mode - security headers disabled for development")
 
 auto_refresh_enabled = True
 auto_refresh_timer = None
 
 # --------------- DB Helpers -------------------
 def get_db():
+    """Get request-scoped database connection"""
     db = getattr(g, "_db", None)
     if db is None:
-        db = sqlite3.connect(DATABASE, check_same_thread=False, timeout=10, isolation_level=None)
+        db = sqlite3.connect(config.DATABASE, check_same_thread=False, timeout=10, isolation_level=None)
         db.row_factory = sqlite3.Row
+        g._db = db
     return db
 
 @app.teardown_appcontext
@@ -72,12 +146,13 @@ def close_db(_):
 
 def get_thread_db():
     """Thread-safe database connection for background threads"""
-    conn = sqlite3.connect(DATABASE, detect_types=sqlite3.PARSE_DECLTYPES, check_same_thread=False)
+    conn = sqlite3.connect(config.DATABASE, detect_types=sqlite3.PARSE_DECLTYPES, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
 
 def init_db():
-    conn = sqlite3.connect(DATABASE)
+    """Initialize database tables and indexes"""
+    conn = sqlite3.connect(config.DATABASE)
     c = conn.cursor()
     c.execute("""
         CREATE TABLE IF NOT EXISTS emails (
@@ -126,7 +201,7 @@ def init_db():
 
 def ensure_ai_summary_column():
     """Add ai_summary and content_hash columns if missing."""
-    conn = sqlite3.connect(DATABASE)
+    conn = sqlite3.connect(config.DATABASE)
     cur = conn.cursor()
     cur.execute("PRAGMA table_info(news_items)")
     cols = [r[1] for r in cur.fetchall()]
@@ -151,10 +226,10 @@ def start_auto_refresh():
             auto_refresh_timer.cancel()
 
         if auto_refresh_enabled:
-            auto_refresh_timer = threading.Timer(AUTO_REFRESH_INTERVAL, auto_refresh_feeds_parallel)
+            auto_refresh_timer = threading.Timer(config.AUTO_REFRESH_INTERVAL, auto_refresh_feeds_parallel)
             auto_refresh_timer.daemon = True
             auto_refresh_timer.start()
-            log.info(f"Auto-refresh scheduled for {AUTO_REFRESH_INTERVAL} seconds")
+            log.info(f"Auto-refresh scheduled for {config.AUTO_REFRESH_INTERVAL} seconds")
 
 def auto_refresh_feeds_parallel():
     """Automatically refresh all feeds in parallel"""
@@ -177,7 +252,7 @@ def auto_refresh_feeds_parallel():
             return
 
         results = []
-        with ThreadPoolExecutor(max_workers=MAX_FEED_WORKERS) as executor:
+        with ThreadPoolExecutor(max_workers=config.MAX_FEED_WORKERS) as executor:
             futures = [executor.submit(process_single_feed, feed) for feed in feeds]
             for future in as_completed(futures):
                 try:
@@ -269,7 +344,7 @@ def safe_get(url: str, headers: Dict[str, str] = None, etag: str = None,
     if last_modified:
         request_headers["If-Modified-Since"] = last_modified
     try:
-        response = requests.get(url, headers=request_headers, timeout=REQUEST_TIMEOUT)
+        response = requests.get(url, headers=request_headers, timeout=config.REQUEST_TIMEOUT)
         response_headers = {}
         if "ETag" in response.headers:
             response_headers["etag"] = response.headers["ETag"]
@@ -732,16 +807,29 @@ def _truthy(v) -> bool:
     return s in ("1", "true", "yes", "on", "y")
 
 @app.route("/api/ingest", methods=["POST"])
+@limiter.limit("30 per minute")  # Rate limit to prevent abuse
 def api_ingest():
     """
     Ingest URL, optionally add discovered feed.
+    Validates URL for security before processing.
     """
-    data = request.get_json(silent=True) or {}
-    url = (data.get("url") or "").strip()
-    auto_add = _truthy(data.get("auto_add_feed") or request.args.get("auto_add_feed"))
+    try:
+        data = request.get_json(silent=True) or {}
+        url = InputValidator.validate_string(data.get("url"), max_length=2048)
+        auto_add = _truthy(data.get("auto_add_feed") or request.args.get("auto_add_feed"))
 
-    if not url or not re.match(r"^https?://", url):
-        return jsonify({"error": "invalid url"}), 400
+        if not url:
+            return jsonify({"error": "URL is required"}), 400
+
+        # Validate URL for security (SSRF protection)
+        try:
+            url = url_validator.validate_url(url)
+        except SecurityError as e:
+            log.warning(f"URL validation failed for {url}: {e}")
+            return jsonify({"error": f"Invalid URL: {str(e)}"}), 400
+    except Exception as e:
+        log.error(f"Error parsing ingest request: {e}")
+        return jsonify({"error": "Invalid request"}), 400
 
     conn = get_db()
     cur = conn.cursor()
@@ -831,11 +919,25 @@ def api_feeds_auto_refresh():
     return jsonify({"status": "ok", "auto_refresh_enabled": auto_refresh_enabled})
 
 @app.route("/api/feeds/add", methods=["POST"])
+@limiter.limit("20 per minute")
 def api_feeds_add():
-    data = request.get_json(silent=True) or {}
-    url = (data.get("url") or "").strip()
-    if not url or not re.match(r"^https?://", url):
-        return jsonify({"error": "invalid url"}), 400
+    """Add a new feed with URL validation"""
+    try:
+        data = request.get_json(silent=True) or {}
+        url = InputValidator.validate_string(data.get("url"), max_length=2048)
+
+        if not url:
+            return jsonify({"error": "URL is required"}), 400
+
+        # Validate URL for security
+        try:
+            url = url_validator.validate_url(url)
+        except SecurityError as e:
+            log.warning(f"URL validation failed: {e}")
+            return jsonify({"error": f"Invalid URL: {str(e)}"}), 400
+    except Exception as e:
+        log.error(f"Error parsing feed add request: {e}")
+        return jsonify({"error": "Invalid request"}), 400
 
     res = extract_email_content(url)
     if not res or not res.get("url"):
@@ -872,6 +974,7 @@ def api_delete_feed(feed_id: int):
     return jsonify({"status": "ok"})
 
 @app.route("/api/feeds/refresh", methods=["GET", "POST"])
+@limiter.limit("10 per minute")
 def api_refresh_feeds():
     feed_id = request.args.get("id")
     url_param = request.args.get("url")
@@ -892,7 +995,7 @@ def api_refresh_feeds():
 
     def refresh_feeds_parallel_thread():
         results = []
-        with ThreadPoolExecutor(max_workers=MAX_FEED_WORKERS) as executor:
+        with ThreadPoolExecutor(max_workers=config.MAX_FEED_WORKERS) as executor:
             futures = [executor.submit(process_single_feed, feed) for feed in feeds]
             for future in as_completed(futures):
                 try:
@@ -926,11 +1029,14 @@ def api_refresh_feeds():
     })
 
 @app.route("/api/emails")
+@limiter.limit("60 per minute")
 def api_emails():
-    filt = request.args.get("filter", "all")
-    search = request.args.get("search", "").strip()
-    page = max(int(request.args.get("page", "1") or 1), 1)
-    per_page = min(max(int(request.args.get("per_page", "50") or 50), 1), 500)
+    """Get news items with pagination and filtering"""
+    # Validate and sanitize inputs
+    filt = InputValidator.validate_sentiment_filter(request.args.get("filter", "all"))
+    search = InputValidator.validate_string(request.args.get("search"), max_length=200)
+    page = InputValidator.validate_integer(request.args.get("page"), min_val=1, default=1)
+    per_page = InputValidator.validate_integer(request.args.get("per_page"), min_val=1, max_val=500, default=50)
     off = (page - 1) * per_page
 
     db = get_db()
@@ -1049,19 +1155,19 @@ def _normalize_item(it: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "id": str(it.get("id")),
         "airline": (it.get("airline") or "")[:160],
-        "content": (it.get("content") or "")[:MAX_CONTENT_CHARS_TO_WORKER],
+        "content": (it.get("content") or "")[:config.MAX_CONTENT_CHARS_TO_WORKER],
         "source": (it.get("source") or "")[:300],
         "date": (it.get("date") or "") or ""
     }
 
 def _call_worker(items: List[Dict[str, Any]]) -> Dict[str, Any]:
     headers = {
-        "Authorization": f"Bearer {CF_WORKER_TOKEN}",
+        "Authorization": f"Bearer {config.CF_WORKER_TOKEN}",
         "Content-Type": "application/json",
     }
     body = {"items": items}
     try:
-        r = requests.post(CF_WORKER_URL, headers=headers, json=body, timeout=WORKER_TIMEOUT)
+        r = requests.post(config.CF_WORKER_URL, headers=headers, json=body, timeout=config.WORKER_TIMEOUT)
     except Exception as e:
         log.exception("Worker request exception")
         return {"error": f"worker request failed: {str(e)}"}
@@ -1076,8 +1182,10 @@ def _call_worker(items: List[Dict[str, Any]]) -> Dict[str, Any]:
     return data
 
 @app.route("/api/ai/summarize", methods=["POST"])
+@limiter.limit("10 per minute")
 def api_ai_summarize():
-    if not CF_WORKER_URL or not CF_WORKER_TOKEN:
+    """Generate AI summaries for news items"""
+    if not config.CF_WORKER_URL or not config.CF_WORKER_TOKEN:
         return jsonify({"error": "Cloudflare worker not configured"}), 500
 
     db = get_db()
@@ -1130,7 +1238,7 @@ def api_ai_summarize():
         publish_sse_event("summary_oob", html_block)
 
     def process_summaries():
-        batches = [items_for_worker[i:i + WORKER_BATCH_SIZE] for i in range(0, len(items_for_worker), WORKER_BATCH_SIZE)]
+        batches = [items_for_worker[i:i + config.WORKER_BATCH_SIZE] for i in range(0, len(items_for_worker), config.WORKER_BATCH_SIZE)]
         all_summaries: Dict[str, Any] = {}
         overall_parts: List[str] = []
         coarse_sent = {"label": "neutral", "score": 0.0}
@@ -1217,7 +1325,7 @@ def api_ai_summarize():
 
                 _emit_summary_events(nid, ai_json_str, short_snip)
 
-                if toast_count < MAX_ITEM_TOASTS:
+                if toast_count < config.MAX_ITEM_TOASTS:
                     msg = f"AI summary ready for item #{nid}"
                     publish_sse_event("toast", make_toast_html(msg, "info", onclick=f"focusItem({nid})"))
                     toast_count += 1
@@ -1286,4 +1394,5 @@ if __name__ == "__main__":
     init_db()
     ensure_ai_summary_column()
     start_auto_refresh()
-    app.run(host="localhost", port=int(os.environ.get("PORT", "5001")), debug=True, threaded=True)
+    log.info(f"Starting Aviation Intelligence Hub on {config.HOST}:{config.PORT}")
+    app.run(host=config.HOST, port=config.PORT, debug=config.DEBUG, threaded=True)
