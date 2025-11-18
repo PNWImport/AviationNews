@@ -11,7 +11,7 @@
     :root {
       --primary: #2563eb;
       --secondary: #7e22ce;
-      --accent: #ec4899;
+      --accent: #3b82f6;
       --bg: #0f1424;
       --card: #0f1a31;
       --text: #e6eef9;
@@ -79,7 +79,7 @@
       padding: 20px;
       border-radius: var(--radius);
       color: #fff;
-      background: linear-gradient(135deg, var(--primary), var(--secondary), var(--accent));
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
       background-size: 200% 200%;
       animation: gradientShift 8s ease infinite;
       display: flex;
@@ -181,7 +181,7 @@
       box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4);
     }
     .btn-primary:hover {
-      background: linear-gradient(135deg, #3b82f6, var(--accent));
+      background: linear-gradient(135deg, #3b82f6, var(--secondary));
       transform: translateY(-2px);
       box-shadow: 0 6px 20px rgba(37, 99, 235, 0.5);
     }
@@ -293,7 +293,7 @@
       color: var(--stat-text-primary);
       line-height: 1;
       margin: 0;
-      background: linear-gradient(135deg, var(--primary), var(--accent));
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
@@ -374,7 +374,7 @@
       margin-top: 20px;
       padding: 24px;
       border-radius: 20px;
-      background: linear-gradient(135deg, var(--primary), var(--secondary), var(--accent));
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
       background-size: 200% 200%;
       animation: gradientShift 8s ease infinite;
       color: #fff;
@@ -451,7 +451,7 @@
     }
     .content-section { margin-bottom: 20px; }
     .content-section h4 { color: var(--primary); font-size: 1rem; margin: 0 0 10px 0; font-weight: 600; }
-    footer { margin: 28px 0 40px; color: var(--muted); text-align: center; font-size: .9rem; background: transparent; }
+    footer { margin: 28px 0 20px; padding-bottom: 20px; color: var(--muted); text-align: center; font-size: .9rem; background: transparent; }
     .loading { position: fixed; left: 0; top: 0; width: 100%; height: 100%; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,.28); z-index: 1000; backdrop-filter: saturate(130%) blur(2px); }
     .loading-card { background: var(--card); border: 1px solid var(--ring); border-radius: 12px; padding: 18px; min-width: 260px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
     .spin { width: 36px; height: 36px; border-radius: 50%; border: 4px solid rgba(0,0,0,.08); border-left-color: var(--primary); animation: spin .9s linear infinite; }
@@ -536,6 +536,82 @@
       .stat-value { font-size: 2rem; }
       .listWrap { height: 60vh; }
     }
+
+    @media (max-width: 768px) {
+      /* Mobile optimizations */
+      .container { padding: 12px; margin: 12px auto; }
+      header { padding: 16px; border-radius: 24px; }
+      header h1 { font-size: 1.1rem; }
+      .subtitle { font-size: .85rem; }
+
+      /* Hero section mobile */
+      .hero-section { padding: 24px 16px !important; }
+      .hero-section h2 { font-size: 1.4rem !important; }
+      .hero-section p { font-size: .9rem !important; }
+
+      /* Stats grid - stack on mobile */
+      .dashboard-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 12px !important; }
+      .stat { padding: 14px; }
+      .stat-label { font-size: .75rem; }
+      .stat-value { font-size: 2rem !important; }
+      .stat p { font-size: .7rem; }
+
+      /* Action bar mobile */
+      .input { font-size: .9rem !important; padding: 10px 12px !important; }
+      #search { min-width: 100% !important; margin-bottom: 8px; }
+
+      /* Buttons smaller on mobile */
+      .btn { padding: 8px 12px; font-size: .85rem; }
+      .filter-btn { padding: 6px 10px; font-size: .8rem; }
+      .sort-btn { padding: 6px 10px; font-size: .8rem; }
+
+      /* Hide button text, show icons only on small screens */
+      .filter-btn span, .sort-btn span { display: none; }
+
+      /* Chart mini preview - hide on very small screens */
+      .panel.chartBox[style*="width:auto"] { display: none !important; }
+
+      /* Selection counter */
+      #selectionCounter { flex-direction: column; gap: 4px; padding: 8px; }
+      #selectionCounter .btn { padding: 4px 8px; font-size: .75rem; }
+
+      /* Toast notifications smaller */
+      .toast { min-width: 280px; max-width: calc(100vw - 32px); font-size: .85rem; }
+
+      /* Tabs */
+      .tabs { gap: 4px; }
+      .tab { padding: 8px 12px; font-size: .85rem; }
+
+      /* Panel padding */
+      .panel { padding: 12px; border-radius: 12px; }
+    }
+
+    @media (max-width: 480px) {
+      /* Very small phones */
+      .dashboard-grid { grid-template-columns: 1fr !important; }
+      .stat-value { font-size: 1.8rem !important; }
+
+      /* Hero even more compact */
+      .hero-section h2 { font-size: 1.2rem !important; }
+      .hero-section p { font-size: .85rem !important; margin-bottom: 16px !important; }
+
+      /* Stack input and button */
+      .hero-section > div > div:first-child { flex-direction: column; }
+      #emailUrl { width: 100%; }
+      #ingestBtn { width: 100%; justify-content: center; }
+
+      /* Action bar full width */
+      .filters { width: 100%; justify-content: space-between; }
+      .filter-btn { flex: 1; }
+
+      /* Font sizes */
+      h2 { font-size: 1.2rem; }
+      h3 { font-size: 1.1rem; }
+
+      /* Item list more compact */
+      .item { padding: 10px; gap: 8px; }
+      .icon { width: 36px; height: 36px; }
+    }
   </style>
 </head>
 <body class="dark">
@@ -577,99 +653,149 @@
 
     <!-- Dashboard -->
     <div class="tab-content active" id="dashboard-tab">
-      <section class="panel" aria-labelledby="ingestTitle">
-        <div>
-          <h3 id="ingestTitle" style="margin:0">Ingest Aviation Email / RSS</h3>
-          <div style="color:var(--muted);font-size:.92rem">
-            Paste a "view in browser" email URL or an RSS/Atom feed URL and ingest. Updates stream in real time.
+      <!-- Hero / Quick Start Section -->
+      <section class="panel hero-section" style="text-align:center;padding:32px;margin-bottom:20px">
+        <h2 style="margin:0 0 8px 0;font-size:1.8rem;font-weight:800">
+          <i class="fa-solid fa-plane-up" style="color:var(--primary)"></i>
+          Welcome to Aviation Intelligence Hub
+        </h2>
+        <p style="color:var(--muted);font-size:1rem;margin:0 0 24px 0;max-width:600px;margin-left:auto;margin-right:auto">
+          Track aviation news from RSS feeds with AI-powered sentiment analysis and summaries
+        </p>
+
+        <!-- Primary Action -->
+        <div style="max-width:700px;margin:0 auto">
+          <div style="display:flex;gap:10px;margin-bottom:12px">
+            <input
+              id="emailUrl"
+              class="input"
+              style="font-size:1rem;padding:14px 18px"
+              placeholder="🔗 Paste RSS feed URL here (e.g., https://example.com/feed)"
+              value="https://www.airlinereporter.com/feed/"
+              aria-label="Enter RSS feed URL">
+            <button id="ingestBtn" class="btn btn-primary" style="padding:14px 28px;font-size:1rem;white-space:nowrap" aria-label="Add feed">
+              <i class="fa-solid fa-plus-circle"></i>&nbsp;Add Feed
+            </button>
           </div>
-        </div>
-        <div class="ingest-row">
-          <input id="emailUrl" class="input" placeholder="https://… or https://host/feed" value="https://www.airlinereporter.com/feed/" aria-label="Enter URL for ingestion">
-          <button id="ingestBtn" class="btn btn-primary" aria-label="Ingest content"><i class="fa-solid fa-download"></i>&nbsp;Ingest</button>
-          <div class="checkbox-wrapper">
-            <input type="checkbox" id="autoAddFeed" checked aria-label="Auto-add RSS feeds">
-            <label for="autoAddFeed">Auto-add RSS feeds</label>
-          </div>
-          <div class="toolbar" style="margin-left:auto">
-            <button id="summBtn" class="btn btn-outline" title="Summarize selected via Workers AI" aria-label="Summarize selected items">
-              <i class="fa-solid fa-wand-magic-sparkles"></i>&nbsp;AI Summarize
-            </button>
-            <button id="summPageBtn" class="btn btn-outline" title="Summarize all items on current page" aria-label="Summarize current page">
-              <i class="fa-solid fa-wand-sparkles"></i>&nbsp;Summarize Page
-            </button>
-            <button id="selectAllBtn" class="btn btn-muted" title="Select all on page" aria-label="Select all items on page">
-              <i class="fa-regular fa-square-check"></i>&nbsp;Select Page
-            </button>
-            <button id="clearSelBtn" class="btn btn-muted" title="Clear selection" aria-label="Clear selection">
-              <i class="fa-regular fa-circle-xmark"></i>&nbsp;Clear
-            </button>
-            <span class="pill">Selected: <strong id="selCount">0</strong></span>
+          <div style="display:flex;align-items:center;justify-content:center;gap:20px;flex-wrap:wrap">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.9rem;color:var(--muted)">
+              <input type="checkbox" id="autoAddFeed" checked style="width:18px;height:18px;accent-color:var(--primary);cursor:pointer">
+              <span>Automatically save this feed</span>
+            </label>
+            <a href="#" onclick="showQuickTips();return false" style="color:var(--primary);font-size:.9rem;text-decoration:none">
+              <i class="fa-solid fa-circle-question"></i> Need help?
+            </a>
           </div>
         </div>
       </section>
 
-      <section class="dashboard">
-        <!-- Stats Cards -->
-        <div class="cards">
-          <div class="stats">
-            <div class="stat" id="statTotalCard">
-              <div class="stat-label">Total</div>
-              <h3 class="stat-value" id="statTotal">0</h3>
-            </div>
-            <div class="stat" id="statPosCard">
-              <div class="stat-label">Positive</div>
-              <h3 class="stat-value" id="statPos">0</h3>
-              <div class="stat-trend" id="posTrend"></div>
-            </div>
-            <div class="stat" id="statNeuCard">
-              <div class="stat-label">Neutral</div>
-              <h3 class="stat-value" id="statNeu">0</h3>
-              <div class="stat-trend" id="neuTrend"></div>
-            </div>
-            <div class="stat" id="statNegCard">
-              <div class="stat-label">Negative</div>
-              <h3 class="stat-value" id="statNeg">0</h3>
-              <div class="stat-trend" id="negTrend"></div>
-            </div>
+      <!-- Stats Overview -->
+      <section class="dashboard-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:16px;margin-bottom:20px">
+        <div class="stat" id="statTotalCard" title="Total news items in your database">
+          <div class="stat-label"><i class="fa-solid fa-newspaper"></i> Total Articles</div>
+          <h3 class="stat-value" id="statTotal">0</h3>
+          <p style="font-size:.8rem;color:var(--muted);margin:4px 0 0 0">News items tracked</p>
+        </div>
+        <div class="stat" id="statPosCard" title="Articles with positive sentiment">
+          <div class="stat-label"><i class="fa-solid fa-face-smile"></i> Positive</div>
+          <h3 class="stat-value" id="statPos">0</h3>
+          <div class="stat-trend" id="posTrend"></div>
+        </div>
+        <div class="stat" id="statNeuCard" title="Articles with neutral sentiment">
+          <div class="stat-label"><i class="fa-solid fa-face-meh"></i> Neutral</div>
+          <h3 class="stat-value" id="statNeu">0</h3>
+          <div class="stat-trend" id="neuTrend"></div>
+        </div>
+        <div class="stat" id="statNegCard" title="Articles with negative sentiment">
+          <div class="stat-label"><i class="fa-solid fa-face-frown"></i> Negative</div>
+          <h3 class="stat-value" id="statNeg">0</h3>
+          <div class="stat-trend" id="negTrend"></div>
+        </div>
+      </section>
+
+      <!-- News Feed Section -->
+      <section class="panel" style="margin-bottom:20px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+          <h3 style="margin:0;font-size:1.3rem">
+            <i class="fa-solid fa-list"></i> Your News Feed
+          </h3>
+          <div class="panel chartBox" style="width:auto;padding:12px;margin:0;display:inline-flex;align-items:center;gap:8px">
+            <canvas id="chart" style="width:100px!important;height:100px!important"></canvas>
+            <div id="lastUpdated" style="font-size:.75rem;color:var(--muted)"></div>
           </div>
         </div>
 
-        <!-- Chart -->
-        <div class="panel chartBox">
-          <div class="chartCanvas"><canvas id="chart"></canvas></div>
-          <div class="chartFooter"><div class="pill" id="lastUpdated"></div></div>
+        <!-- Action Bar -->
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px;padding:12px;background:var(--hover);border-radius:12px">
+          <input class="input" id="search" placeholder="🔍 Search articles..." aria-label="Search news items" style="flex:1;min-width:200px">
+
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="filter-btn active" data-filter="all" title="Show all articles">
+              <i class="fa-solid fa-border-all"></i><span>&nbsp;All</span>
+            </button>
+            <button class="filter-btn" data-filter="positive" title="Show positive articles">
+              <i class="fa-solid fa-thumbs-up"></i><span>&nbsp;Positive</span>
+            </button>
+            <button class="filter-btn" data-filter="neutral" title="Show neutral articles">
+              <i class="fa-solid fa-minus"></i><span>&nbsp;Neutral</span>
+            </button>
+            <button class="filter-btn" data-filter="negative" title="Show negative articles">
+              <i class="fa-solid fa-thumbs-down"></i><span>&nbsp;Negative</span>
+            </button>
+          </div>
+
+          <div style="border-left:1px solid var(--ring);padding-left:10px;display:flex;gap:6px;flex-wrap:wrap">
+            <button id="summPageBtn" class="btn btn-primary" title="Generate AI summaries for all visible articles" style="font-size:.9rem">
+              <i class="fa-solid fa-wand-magic-sparkles"></i> Summarize Visible
+            </button>
+            <button id="selectAllBtn" class="btn btn-outline" title="Select all items on page" style="font-size:.9rem">
+              <i class="fa-regular fa-square-check"></i>
+            </button>
+            <button id="exportBtn" class="btn btn-outline" title="Export as CSV" style="font-size:.9rem">
+              <i class="fa-solid fa-download"></i>
+            </button>
+          </div>
+
+          <span class="pill" id="selectionCounter" style="display:none">
+            <strong id="selCount">0</strong> selected
+            <button id="summBtn" class="btn btn-primary" title="Summarize selected" style="font-size:.85rem;padding:6px 12px;margin-left:8px">
+              <i class="fa-solid fa-wand-magic-sparkles"></i> Summarize
+            </button>
+            <button id="clearSelBtn" style="background:none;border:none;color:var(--muted);cursor:pointer;margin-left:8px" title="Clear selection">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </span>
         </div>
 
-        <!-- News List -->
-        <div class="listWrap">
-          <div class="listControls">
-            <input class="input" id="search" placeholder="Search news…" aria-label="Search news items">
-            <div class="filters" role="toolbar" aria-label="Filters">
-              <button class="filter-btn active" data-filter="all">All</button>
-              <button class="filter-btn" data-filter="positive">Positive</button>
-              <button class="filter-btn" data-filter="neutral">Neutral</button>
-              <button class="filter-btn" data-filter="negative">Negative</button>
-              <button id="exportBtn" class="btn btn-outline" title="Export CSV" aria-label="Export as CSV"><i class="fa-solid fa-file-export"></i></button>
-            </div>
-            <div class="sort-controls">
-              <button class="sort-btn active" data-sort="date-desc">
-                <i class="fa-solid fa-clock"></i> Latest
-              </button>
-              <button class="sort-btn" data-sort="date-asc">
-                <i class="fa-solid fa-clock-rotate-left"></i> Oldest
-              </button>
-              <button class="sort-btn" data-sort="alpha-asc">
-                <i class="fa-solid fa-arrow-down-a-z"></i> A-Z
-              </button>
-              <button class="sort-btn" data-sort="alpha-desc">
-                <i class="fa-solid fa-arrow-down-z-a"></i> Z-A
-              </button>
-            </div>
-          </div>
-          <div id="list" class="list" aria-live="polite"></div>
-          <div class="pagi" id="pagi"></div>
+        <!-- Sort Controls -->
+        <div style="display:flex;gap:8px;margin-bottom:12px;padding:0 4px;flex-wrap:wrap">
+          <span style="font-size:.85rem;color:var(--muted);display:flex;align-items:center">Sort by:</span>
+          <button class="sort-btn active" data-sort="date-desc">
+            <i class="fa-solid fa-clock"></i><span>&nbsp;Latest First</span>
+          </button>
+          <button class="sort-btn" data-sort="date-asc">
+            <i class="fa-solid fa-clock-rotate-left"></i><span>&nbsp;Oldest First</span>
+          </button>
+          <button class="sort-btn" data-sort="alpha-asc">
+            <i class="fa-solid fa-arrow-down-a-z"></i><span>&nbsp;A-Z</span>
+          </button>
         </div>
+
+        <!-- News List Container -->
+        <div class="list" id="list" aria-live="polite" style="min-height:300px;max-height:600px;overflow-y:auto">
+          <!-- Empty state - shown when no news -->
+          <div id="emptyState" style="text-align:center;padding:60px 20px;display:none">
+            <i class="fa-solid fa-inbox" style="font-size:4rem;color:var(--muted);opacity:0.3;margin-bottom:16px"></i>
+            <h3 style="color:var(--muted);margin:0 0 8px 0">No news articles yet</h3>
+            <p style="color:var(--muted);font-size:.9rem;margin:0 0 20px 0">Add your first RSS feed above to get started!</p>
+            <button onclick="document.getElementById('emailUrl').focus()" class="btn btn-primary">
+              <i class="fa-solid fa-plus"></i> Add Your First Feed
+            </button>
+          </div>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagi" id="pagi" style="margin-top:16px"></div>
       </section>
     </div>
 
@@ -1045,8 +1171,18 @@
           data = data.filter(it => it.sentiment_label === currentFilter);
         }
         data = applySort(data);
+
+        // Show/hide empty state
+        const emptyState = $('#emptyState');
+        if (newsCache.length === 0) {
+          emptyState.style.display = 'block';
+          return;
+        } else {
+          emptyState.style.display = 'none';
+        }
+
         if (data.length === 0) {
-          listEl.innerHTML = '<div style="padding:12px;color:var(--muted)">No news. Ingest or change filters.</div>';
+          listEl.innerHTML = '<div style="padding:40px;text-align:center"><i class="fa-solid fa-filter-circle-xmark" style="font-size:2.5rem;color:var(--muted);opacity:0.4;margin-bottom:12px;display:block"></i><div style="color:var(--muted)">No articles match your current filter</div><button onclick="document.querySelector(\'.filter-btn[data-filter=all]\').click()" class="btn btn-outline" style="margin-top:12px">Clear Filters</button></div>';
           return;
         }
         for (const it of data) {
@@ -1114,7 +1250,59 @@
       }
       function updateSelCount() {
         selCountEl.textContent = String(selectedIds.size);
+        // Show/hide selection counter
+        const counter = $('#selectionCounter');
+        if (selectedIds.size > 0) {
+          counter.style.display = 'inline-flex';
+        } else {
+          counter.style.display = 'none';
+        }
       }
+
+      /* =============== Quick Tips =============== */
+      window.showQuickTips = function() {
+        const tips = `
+<div style="text-align:left;max-width:500px">
+  <h3 style="margin:0 0 16px 0;color:var(--primary)">
+    <i class="fa-solid fa-lightbulb"></i> Quick Start Guide
+  </h3>
+
+  <div style="margin-bottom:16px">
+    <h4 style="margin:0 0 8px 0;font-size:1rem"><i class="fa-solid fa-1"></i> Add a Feed</h4>
+    <p style="margin:0;color:var(--muted);font-size:.9rem">
+      Paste any RSS/Atom feed URL (like <code style="background:var(--hover);padding:2px 6px;border-radius:4px">https://example.com/feed</code>) and click "Add Feed"
+    </p>
+  </div>
+
+  <div style="margin-bottom:16px">
+    <h4 style="margin:0 0 8px 0;font-size:1rem"><i class="fa-solid fa-2"></i> View Sentiment</h4>
+    <p style="margin:0;color:var(--muted);font-size:.9rem">
+      Each article is automatically analyzed for sentiment (Positive, Neutral, or Negative)
+    </p>
+  </div>
+
+  <div style="margin-bottom:16px">
+    <h4 style="margin:0 0 8px 0;font-size:1rem"><i class="fa-solid fa-3"></i> Get AI Summaries</h4>
+    <p style="margin:0;color:var(--muted);font-size:.9rem">
+      Click "Summarize Visible" to generate AI-powered summaries for all articles on screen
+    </p>
+  </div>
+
+  <div style="margin-bottom:16px">
+    <h4 style="margin:0 0 8px 0;font-size:1rem"><i class="fa-solid fa-4"></i> Manage Feeds</h4>
+    <p style="margin:0;color:var(--muted);font-size:.9rem">
+      Go to "Feed Management" tab to auto-refresh feeds and manage your subscriptions
+    </p>
+  </div>
+
+  <div style="margin-top:20px;padding:12px;background:var(--hover);border-radius:8px;border-left:3px solid var(--primary)">
+    <strong style="color:var(--primary)">💡 Tip:</strong>
+    <span style="color:var(--muted);font-size:.9rem">Most aviation news sites have RSS feeds. Look for URLs ending in <code style="background:var(--card);padding:2px 4px;border-radius:3px">/feed</code> or <code style="background:var(--card);padding:2px 4px;border-radius:3px">/rss</code></span>
+  </div>
+</div>`;
+
+        toast(tips, 'info', 15000);
+      };
 
       /* =============== SSE (EventSource) =============== */
       function openSSE() {

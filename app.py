@@ -345,6 +345,9 @@ def safe_get(url: str, headers: Dict[str, str] = None, etag: str = None,
         request_headers["If-Modified-Since"] = last_modified
     try:
         response = requests.get(url, headers=request_headers, timeout=config.REQUEST_TIMEOUT)
+        # Fix character encoding issues (â, etc.)
+        if response.encoding == 'ISO-8859-1':
+            response.encoding = response.apparent_encoding or 'utf-8'
         response_headers = {}
         if "ETag" in response.headers:
             response_headers["etag"] = response.headers["ETag"]
