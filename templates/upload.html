@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">Upload Content</h1>
+        <p class="text-gray-600">Add new aviation news content to your catalog</p>
+    </div>
+    
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold mb-4">Paste Text Content</h2>
+            <form hx-post="{{ url_for('upload') }}" hx-target="#upload-result" hx-swap="innerHTML" class="space-y-4">
+                <div>
+                    <label for="source" class="block text-sm font-medium text-gray-700 mb-2">Source</label>
+                    <select id="source" name="source" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="Manual Entry">Manual Entry</option>
+                        <option value="Aviator.aero">Aviator.aero</option>
+                        <option value="FlightGlobal">FlightGlobal</option>
+                        <option value="Aviation Week">Aviation Week</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="content" class="block text-sm font-medium text-gray-700 mb-2">Content</label>
+                    <textarea id="content" name="content" rows="15" placeholder="Paste your aviation news content here..." class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" required></textarea>
+                </div>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors">
+                    <span class="htmx-indicator loading-spinner mr-2"></span>Process Content
+                </button>
+            </form>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold mb-4">Upload File</h2>
+            <form hx-post="{{ url_for('upload') }}" hx-encoding="multipart/form-data" hx-target="#upload-result" hx-swap="innerHTML" class="space-y-4">
+                <div>
+                    <label for="file-source" class="block text-sm font-medium text-gray-700 mb-2">Source</label>
+                    <input type="text" id="file-source" name="source" placeholder="Enter source name..." class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors">
+                    <p class="text-lg text-gray-600 mb-2">Drop your files here or</p>
+                    <label for="file" class="cursor-pointer">
+                        <span class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors">Browse Files</span>
+                        <input id="file" name="file" type="file" class="hidden" accept=".txt,.csv">
+                    </label>
+                    <p class="text-sm text-gray-500 mt-2">Supports: .txt, .csv files (max 16MB)</p>
+                </div>
+                <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md transition-colors">
+                    <span class="htmx-indicator loading-spinner mr-2"></span>Upload & Process File
+                </button>
+            </form>
+        </div>
+    </div>
+    
+    <div id="upload-result" class="min-h-[100px]"></div>
+    
+    <div class="bg-blue-50 rounded-lg p-6">
+        <h3 class="text-lg font-semibold text-blue-900 mb-3">📋 Quick Start Guide</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div>
+                <h4 class="font-medium text-blue-800 mb-2">✉️ Aviator.aero Emails</h4>
+                <ul class="space-y-1 text-blue-700">
+                    <li>• Copy email content directly</li>
+                    <li>• Select "Aviator.aero" as source</li>
+                    <li>• System will auto-parse articles</li>
+                    <li>• Date extraction is automatic</li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="font-medium text-blue-800 mb-2">📄 Text Files</h4>
+                <ul class="space-y-1 text-blue-700">
+                    <li>• Upload .txt files up to 16MB</li>
+                    <li>• Separate articles with blank lines</li>
+                    <li>• Include source information</li>
+                    <li>• Auto-categorization enabled</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

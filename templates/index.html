@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aviation Intelligence Hub</title>
+  <!-- Icons + Chart.js -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --secondary: #7e22ce;
+      --bg: #0f1424;
+      --card: #0f1a31;
+      --text: #e6eef9;
+      --muted: #9db0c9;
+      --ring: #1d2a44;
+      --radius: 44px;
+      --hover: rgba(255,255,255,.05);
+      --shadow: 0 10px 24px rgba(0,0,0,.35);
+      --shadow-soft: 0 6px 24px rgba(0,0,0,.28);
+      --focus: 0 0 0 3px rgba(96,165,250,.35);
+      --badge-pos-bg: rgba(16,185,129,.18);
+      --badge-pos: #22c55e;
+      --badge-neu-bg: rgba(148,163,184,.18);
+      --badge-neu: #cbd5e1;
+      --badge-neg-bg: rgba(239,68,68,.18);
+      --badge-neg: #f87171;
+      --toast-bg: #0b1223;
+      --toast-fg: #e6eef9;
+      --toast-ring: #1d2a44;
+      --toast-good: #16a34a;
+      --toast-bad: #ef4444;
+      --toast-info: #3b82f6;
+      --border-subtle: rgba(255,255,255,.08);
+      --toggle-bg: rgba(255,255,255,.1);
+      --topRowH: 295px;
+      --search-bg: rgba(255,255,255,.03);
+      --search-border: #2563eb40;
+      --search-focus-bg: rgba(37,99,235,.08);
+      --stat-text-primary: #ffffff;
+      --stat-text-secondary: #b8c7db;
+    }
+    body.light {
+      --bg: #f5f7fb;
+      --card: #fff;
+      --text: #0b1223;
+      --muted: #5b6b84;
+      --ring: #e3e8f3;
+      --border-subtle: rgba(0,0,0,.08);
+      --toggle-bg: rgba(0,0,0,.05);
+      --search-bg: rgba(0,0,0,.02);
+      --search-border: #2563eb30;
+      --search-focus-bg: rgba(37,99,235,.04);
+      --stat-text-primary: #0b1223;
+      --stat-text-secondary: #5b6b84;
+      --toast-bg: #ffffff;
+      --toast-fg: #0b1223;
+      --toast-ring: #e3e8f3;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body { margin: 0; background: var(--bg); color: var(--text); font-family: Inter, system-ui, Arial; -webkit-font-smoothing: antialiased; }
+    .container { max-width: 1200px; margin: 18px auto; padding: 16px; }
+    header { padding: 16px; border-radius: var(--radius); color: #fff; background: linear-gradient(135deg, var(--primary), var(--secondary)); display: flex; align-items: center; justify-content: space-between; box-shadow: var(--shadow); }
+    header h1 { margin: 0; font-size: 1.25rem; }
+    .subtitle { opacity: .95; font-size: .92rem; }
+    .theme-toggle { border: none; border-radius: 999px; padding: 8px 12px; background: rgba(255,255,255,.18); color: #fff; cursor: pointer; transition: .2s; }
+    .theme-toggle:hover { background: rgba(255,255,255,.25); transform: translateY(-1px); }
+    .panel { background: var(--card); border-radius: 12px; box-shadow: var(--shadow-soft); padding: 14px; border: 1px solid var(--ring); }
+    .ingest-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+    .input { flex: 1; min-width: 220px; border: 1px solid var(--ring); border-radius: 999px; background: transparent; padding: 12px 14px; color: var(--text); }
+    #search { background: var(--search-bg); border: 2px solid var(--search-border); transition: all .3s ease; }
+    #search:focus { outline: none; background: var(--search-focus-bg); border-color: var(--primary); box-shadow: 0 0 0 4px rgba(37,99,235,.1); }
+    .btn { border: none; border-radius: 999px; padding: 10px 14px; font-weight: 700; cursor: pointer; transition: .2s; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: #3b82f6; transform: translateY(-1px); }
+    .btn-outline { background: transparent; border: 1px solid var(--ring); color: var(--muted); }
+    .btn-outline:hover { border-color: var(--primary); color: var(--primary); }
+    .btn-muted { background: transparent; border: 1px solid var(--ring); color: var(--muted); opacity: .9; }
+    .btn-muted:hover { opacity: 1; border-color: var(--primary); }
+    .btn-danger { background: #ef4444; color: #fff; }
+    .btn-danger:hover { background: #dc2626; transform: translateY(-1px); }
+    .checkbox-wrapper { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+    .checkbox-wrapper input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--primary); cursor: pointer; }
+    .checkbox-wrapper label { cursor: pointer; user-select: none; font-size: .92rem; color: var(--muted); }
+    .dashboard { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: var(--topRowH) auto; grid-template-areas: "cards chart" "list list"; gap: 16px; margin-top: 16px; }
+    .cards { grid-area: cards; height: 100%; }
+    .chartBox { grid-area: chart; height: 100%; display: flex; flex-direction: column; }
+    .chartCanvas { flex: 1; min-height: 0; }
+    .chartFooter { display: flex; justify-content: center; margin-top: 10px; }
+    .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; height: 100%; }
+    .stat { background: var(--card); border: 1px solid var(--ring); border-radius: 12px; padding: 16px; text-align: center; transition: .2s; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 0; }
+    .stat:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+    .stat-label { color: var(--stat-text-secondary); font-size: .85rem; margin-bottom: 8px; font-weight: 500; text-transform: uppercase; letter-spacing: .5px; }
+    .stat-value { font-size: 2.5rem; font-weight: 800; color: var(--stat-text-primary); line-height: 1; margin: 0; }
+    .stat-trend { display: flex; align-items: center; gap: 4px; margin-top: 8px; font-size: .9rem; font-weight: 600; }
+    .trend-indicator { font-size: 1rem; }
+    .trend-up { color: var(--badge-pos); }
+    .trend-down { color: var(--badge-neg); }
+    .sort-controls { display: flex; gap: 8px; align-items: center; margin-left: 12px; }
+    .sort-btn { padding: 8px 12px; border-radius: 999px; border: 1px solid var(--ring); background: transparent; cursor: pointer; transition: .2s; font-size: .85rem; display: flex; align-items: center; gap: 6px; color: var(--muted); }
+    .sort-btn:hover { border-color: var(--primary); color: var(--primary); }
+    .sort-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .listControls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+    .listControls .input { flex: 1; min-width: 260px; }
+    .filters { display: flex; gap: 8px; align-items: center; }
+    .filter-btn { padding: 8px 12px; border-radius: 999px; border: 1px solid var(--ring); background: transparent; cursor: pointer; transition: .2s; }
+    .filter-btn:hover { border-color: var(--primary); }
+    .filter-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .listWrap { grid-area: list; display: flex; flex-direction: column; height: 70vh; }
+    .listWrap .list { background: var(--card); border: 1px solid var(--ring); border-radius: 12px; padding: 8px; flex: 1; overflow-y: auto; overflow-x: hidden; min-height: 0; }
+    .item { display: grid; grid-template-columns: auto 1fr; gap: 12px; padding: 12px; border-radius: 10px; align-items: flex-start; cursor: pointer; transition: .2s; overflow-x: hidden; }
+    .item:hover { background: var(--hover); transform: translateY(-1px); }
+    .row-head { display: flex; gap: 10px; align-items: center; }
+    .check { accent-color: var(--primary); width: 18px; height: 18px; cursor: pointer; }
+    .icon { width: 44px; height: 44px; border-radius: 10px; background: linear-gradient(135deg, var(--primary), var(--secondary)); display: flex; align-items: center; justify-content: center; color: #fff; }
+    .badge { padding: 6px 10px; border-radius: 999px; font-weight: 800; font-size: .78rem; margin-left: 8px; }
+    .positive { background: var(--badge-pos-bg); color: var(--badge-pos); }
+    .neutral { background: var(--badge-neu-bg); color: var(--badge-neu); }
+    .negative { background: var(--badge-neg-bg); color: var(--badge-neg); }
+    .detail-content { background: var(--card); border: 1px solid var(--ring); border-radius: 12px; padding: 20px; margin: 8px 0; max-width: 100%; }
+    .full-content { background: var(--bg); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 16px; margin-top: 16px; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word; max-height: 400px; overflow-y: auto; }
+    .ai-analysis { margin-top: 16px; padding: 20px; border-radius: 12px; background: linear-gradient(135deg, var(--primary), var(--secondary)); color: #fff; border: 1px solid rgba(255, 255, 255, 0.1); }
+    .ai-analysis-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; font-weight: 700; font-size: 1.1rem; }
+    .ai-key-points { margin: 12px 0; }
+    .ai-key-points ul { margin: 8px 0 0 20px; padding: 0; list-style-type: disc; }
+    .ai-key-points li { margin-bottom: 8px; line-height: 1.4; }
+    .ai-insights { margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.2); font-size: 0.95rem; line-height: 1.4; }
+    .content-section { margin-bottom: 20px; }
+    .content-section h4 { color: var(--primary); font-size: 1rem; margin: 0 0 10px 0; font-weight: 600; }
+    footer { margin: 28px 0 40px; color: var(--muted); text-align: center; font-size: .9rem; background: transparent; }
+    .loading { position: fixed; left: 0; top: 0; width: 100%; height: 100%; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,.28); z-index: 1000; backdrop-filter: saturate(130%) blur(2px); }
+    .loading-card { background: var(--card); border: 1px solid var(--ring); border-radius: 12px; padding: 18px; min-width: 260px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+    .spin { width: 36px; height: 36px; border-radius: 50%; border: 4px solid rgba(0,0,0,.08); border-left-color: var(--primary); animation: spin .9s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .pagi { display: flex; gap: 6px; align-items: center; justify-content: center; margin-top: 10px; flex-wrap: wrap; }
+    .pbtn { border: 1px solid var(--ring); background: var(--card); border-radius: 10px; padding: 8px 10px; cursor: pointer; min-width: 38px; text-align: center; transition: .2s; }
+    .pbtn:hover { border-color: var(--primary); color: var(--primary); }
+    .pbtn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .pbtn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .pill { font-size: .82rem; padding: 8px 10px; border: 1px solid var(--ring); border-radius: 999px; background: transparent; color: var(--text); }
+    .toasts { position: fixed; top: 20px; right: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 1200; max-height: 80vh; overflow-y: auto; }
+    .toast { background: var(--toast-bg); color: var(--toast-fg); border: 1px solid var(--toast-ring); border-radius: 14px; box-shadow: var(--shadow-soft); padding: 12px 16px; display: flex; align-items: center; gap: 12px; min-width: 300px; max-width: 400px; font-size: .95rem; animation: slide-in .3s ease forwards; position: relative; }
+    .toast.good { border-color: var(--toast-good); }
+    .toast.bad { border-color: var(--toast-bad); }
+    .toast.info { border-color: var(--toast-info); }
+    .toast .icon { width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+    .toast.good .icon { background: var(--toast-good); color: #fff; }
+    .toast.bad .icon { background: var(--toast-bad); color: #fff; }
+    .toast.info .icon { background: var(--toast-info); color: #fff; }
+    .toast .close-btn { margin-left: auto; background: transparent; border: none; color: var(--toast-fg); font-size: 1rem; cursor: pointer; opacity: 0.7; transition: opacity .2s; }
+    .toast .close-btn:hover { opacity: 1; }
+    @keyframes slide-in { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes slide-out { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(10px); } }
+    @keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
+    canvas { background: transparent; height: 100% !important; width: 100% !important; }
+    .tabs { display: flex; gap: 2px; margin-bottom: 16px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 8px; }
+    .tab { padding: 10px 16px; cursor: pointer; border-radius: 8px 8px 0 0; transition: .2s; color: var(--text); }
+    .tab.active { background: var(--primary); color: #fff; }
+    .tab:hover:not(.active) { background: var(--hover); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .feeds-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; }
+    .refresh-controls { display: flex; gap: 10px; align-items: center; }
+    .refresh-timer { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid var(--ring); border-radius: 999px; font-size: .85rem; color: var(--muted); }
+    .refresh-timer select { background: transparent; border: none; color: var(--text); cursor: pointer; outline: none; font-weight: 600; }
+    .feeds-list { margin-top: 16px; width: 100%; }
+    .feed-item { display: flex; align-items: center; justify-content: space-between; padding: 12px; border-bottom: 1px solid var(--border-subtle); transition: .2s; }
+    .feed-item:hover { background: var(--hover); }
+    .feed-title { font-weight: 600; color: var(--text); }
+    .feed-url { font-size: .85rem; color: var(--muted); margin-top: 4px; overflow: hidden; text-overflow: ellipsis; max-width: 450px; }
+    .feed-details { flex: 1; }
+    .feed-actions { display: flex; gap: 8px; }
+    .feed-status { padding: 4px 8px; border-radius: 999px; font-size: 1rem; font-weight: 600; }
+    .feed-status.ok { background: var(--badge-pos-bg); color: var(--badge-pos); }
+    .feed-status.error { background: var(--badge-neg-bg); color: var(--badge-neg); }
+    .feed-date { font-size: .8rem; color: var(--muted); }
+    .switch { position: relative; display: inline-block; width: 50px; height: 24px; margin-left: 8px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--toggle-bg); transition: .4s; border-radius: 34px; }
+    .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 4px; background-color: #fff; transition: .4s; border-radius: 50%; }
+    input:checked + .slider { background-color: var(--primary); }
+    input:checked + .slider:before { transform: translateX(26px); }
+    .new-content { position: relative; }
+    .new-content::after { content: ""; position: absolute; top: 0; right: 0; width: 8px; height: 8px; background: var(--badge-pos); border-radius: 50%; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+
+    /* Smooth scrollbar for list */
+    .listWrap .list::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .listWrap .list::-webkit-scrollbar-track {
+        background: var(--ring);
+        border-radius: 4px;
+    }
+
+    .listWrap .list::-webkit-scrollbar-thumb {
+        background: var(--primary);
+        border-radius: 4px;
+    }
+
+    .listWrap .list::-webkit-scrollbar-thumb:hover {
+        background: var(--secondary);
+    }
+
+    @media (max-width: 900px) {
+      :root { --topRowH: 380px; }
+      .dashboard { grid-template-columns: 1fr; grid-template-rows: var(--topRowH) var(--topRowH) auto; grid-template-areas: "cards" "chart" "list"; }
+      .feed-item { flex-direction: column; align-items: flex-start; gap: 10px; }
+      .feed-actions { margin-top: 8px; }
+      .stat-value { font-size: 2rem; }
+      .listWrap { height: 60vh; }
+    }
+  </style>
+</head>
+<body class="dark">
+  <!-- Loading overlay -->
+  <div class="loading" id="loading" role="status" aria-live="polite">
+    <div class="loading-card">
+      <div class="spin" aria-hidden="true"></div>
+      <div id="loadingText">Processing…</div>
+    </div>
+  </div>
+
+  <!-- Toasts -->
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+
+  <div class="container">
+    <header>
+      <div>
+        <h1>Aviation Intelligence Hub</h1>
+        <div class="subtitle">Realtime aviation news aggregation with AI analysis</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <div class="pill" id="connectionStatus">
+          <i class="fa-solid fa-circle-dot" style="color:#9ca3af"></i>
+          <span>Disconnected</span>
+        </div>
+        <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme"><i class="fa-solid fa-sun"></i>&nbsp;Light</button>
+      </div>
+    </header>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <div class="tab active" data-tab="dashboard">Dashboard</div>
+      <div class="tab" data-tab="feeds">Feed Management</div>
+      <div class="tab" data-tab="settings">Settings</div>
+    </div>
+
+    <!-- Dashboard -->
+    <div class="tab-content active" id="dashboard-tab">
+      <section class="panel" aria-labelledby="ingestTitle">
+        <div>
+          <h3 id="ingestTitle" style="margin:0">Ingest Aviation Email / RSS</h3>
+          <div style="color:var(--muted);font-size:.92rem">
+            Paste a "view in browser" email URL or an RSS/Atom feed URL and ingest. Updates stream in real time.
+          </div>
+        </div>
+        <div class="ingest-row">
+          <input id="emailUrl" class="input" placeholder="https://… or https://host/feed" value="https://www.airlinereporter.com/feed/" aria-label="Enter URL for ingestion">
+          <button id="ingestBtn" class="btn btn-primary" aria-label="Ingest content"><i class="fa-solid fa-download"></i>&nbsp;Ingest</button>
+          <div class="checkbox-wrapper">
+            <input type="checkbox" id="autoAddFeed" checked aria-label="Auto-add RSS feeds">
+            <label for="autoAddFeed">Auto-add RSS feeds</label>
+          </div>
+          <div class="toolbar" style="margin-left:auto">
+            <button id="summBtn" class="btn btn-outline" title="Summarize selected via Workers AI" aria-label="Summarize selected items">
+              <i class="fa-solid fa-wand-magic-sparkles"></i>&nbsp;AI Summarize
+            </button>
+            <button id="summPageBtn" class="btn btn-outline" title="Summarize all items on current page" aria-label="Summarize current page">
+              <i class="fa-solid fa-wand-sparkles"></i>&nbsp;Summarize Page
+            </button>
+            <button id="selectAllBtn" class="btn btn-muted" title="Select all on page" aria-label="Select all items on page">
+              <i class="fa-regular fa-square-check"></i>&nbsp;Select Page
+            </button>
+            <button id="clearSelBtn" class="btn btn-muted" title="Clear selection" aria-label="Clear selection">
+              <i class="fa-regular fa-circle-xmark"></i>&nbsp;Clear
+            </button>
+            <span class="pill">Selected: <strong id="selCount">0</strong></span>
+          </div>
+        </div>
+      </section>
+
+      <section class="dashboard">
+        <!-- Stats Cards -->
+        <div class="cards">
+          <div class="stats">
+            <div class="stat" id="statTotalCard">
+              <div class="stat-label">Total</div>
+              <h3 class="stat-value" id="statTotal">0</h3>
+            </div>
+            <div class="stat" id="statPosCard">
+              <div class="stat-label">Positive</div>
+              <h3 class="stat-value" id="statPos">0</h3>
+              <div class="stat-trend" id="posTrend"></div>
+            </div>
+            <div class="stat" id="statNeuCard">
+              <div class="stat-label">Neutral</div>
+              <h3 class="stat-value" id="statNeu">0</h3>
+              <div class="stat-trend" id="neuTrend"></div>
+            </div>
+            <div class="stat" id="statNegCard">
+              <div class="stat-label">Negative</div>
+              <h3 class="stat-value" id="statNeg">0</h3>
+              <div class="stat-trend" id="negTrend"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chart -->
+        <div class="panel chartBox">
+          <div class="chartCanvas"><canvas id="chart"></canvas></div>
+          <div class="chartFooter"><div class="pill" id="lastUpdated"></div></div>
+        </div>
+
+        <!-- News List -->
+        <div class="listWrap">
+          <div class="listControls">
+            <input class="input" id="search" placeholder="Search news…" aria-label="Search news items">
+            <div class="filters" role="toolbar" aria-label="Filters">
+              <button class="filter-btn active" data-filter="all">All</button>
+              <button class="filter-btn" data-filter="positive">Positive</button>
+              <button class="filter-btn" data-filter="neutral">Neutral</button>
+              <button class="filter-btn" data-filter="negative">Negative</button>
+              <button id="exportBtn" class="btn btn-outline" title="Export CSV" aria-label="Export as CSV"><i class="fa-solid fa-file-export"></i></button>
+            </div>
+            <div class="sort-controls">
+              <button class="sort-btn active" data-sort="date-desc">
+                <i class="fa-solid fa-clock"></i> Latest
+              </button>
+              <button class="sort-btn" data-sort="date-asc">
+                <i class="fa-solid fa-clock-rotate-left"></i> Oldest
+              </button>
+              <button class="sort-btn" data-sort="alpha-asc">
+                <i class="fa-solid fa-arrow-down-a-z"></i> A-Z
+              </button>
+              <button class="sort-btn" data-sort="alpha-desc">
+                <i class="fa-solid fa-arrow-down-z-a"></i> Z-A
+              </button>
+            </div>
+          </div>
+          <div id="list" class="list" aria-live="polite"></div>
+          <div class="pagi" id="pagi"></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Feeds -->
+    <div class="tab-content" id="feeds-tab">
+      <section class="panel">
+        <div class="feeds-header">
+          <h3 style="margin:0">RSS/Atom Feed Management</h3>
+          <div class="refresh-controls">
+            <div class="refresh-timer">
+              <i class="fa-solid fa-clock"></i>
+              <span>Auto-refresh:</span>
+              <select id="refreshInterval" aria-label="Set auto-refresh interval">
+                <option value="0">Off</option>
+                <option value="5" selected>5 min</option>
+                <option value="15">15 min</option>
+                <option value="30">30 min</option>
+                <option value="60">1 hour</option>
+              </select>
+            </div>
+            <button id="refreshAllFeedsBtn" class="btn btn-primary" aria-label="Refresh all feeds">
+              <i class="fa-solid fa-rotate"></i> Refresh All Feeds
+            </button>
+          </div>
+        </div>
+        <div style="color:var(--muted);font-size:.92rem;margin-bottom:16px">
+          Manage your feeds. The system can auto-discover feeds from websites.
+        </div>
+        <div class="feeds-list" id="feedsList">
+          <div style="text-align:center;padding:20px;color:var(--muted)">
+            <i class="fa-solid fa-spinner fa-spin"></i> Loading feeds...
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Settings -->
+    <div class="tab-content" id="settings-tab">
+      <section class="panel">
+        <h3>Application Settings</h3>
+        <div style="margin-top:20px">
+          <h4>Display Settings</h4>
+          <div style="display:flex;align-items:center;margin-top:10px">
+            <span>Dark Mode</span>
+            <label class="switch"><input type="checkbox" id="darkModeToggle" checked aria-label="Toggle dark mode"><span class="slider"></span></label>
+          </div>
+          <div style="display:flex;align-items:center;margin-top:10px">
+            <span>Real-time Updates</span>
+            <label class="switch"><input type="checkbox" id="sseToggle" checked aria-label="Toggle real-time updates"><span class="slider"></span></label>
+          </div>
+        </div>
+        <div style="margin-top:30px">
+          <h4>Data Management</h4>
+          <div style="display:flex;gap:10px;margin-top:10px">
+            <button id="exportAllBtn" class="btn btn-outline" aria-label="Export all data"><i class="fa-solid fa-file-export"></i> Export All Data</button>
+            <button id="clearCacheBtn" class="btn btn-muted" aria-label="Clear local cache"><i class="fa-solid fa-broom"></i> Clear Local Cache</button>
+          </div>
+        </div>
+        <div style="margin-top:30px">
+          <h4>About</h4>
+          <div style="color:var(--muted);font-size:.92rem;line-height:1.5">
+            <p>Aviation Intelligence Hub v1.8.0</p>
+            <p>Real-time aviation news with AI summaries & sentiment. Powered by Cloudflare Workers AI and Flask.</p>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <footer>© Aviation Intelligence Hub</footer>
+  </div>
+
+  <script>
+    (function() {
+      const $ = s => document.querySelector(s);
+      const $$ = s => document.querySelectorAll(s);
+
+      const listEl = $('#list');
+      const loadEl = $('#loading');
+      const loadTxt = $('#loadingText');
+      const pagiEl = $('#pagi');
+      const selCountEl = $('#selCount');
+      const toastsEl = $('#toasts');
+      const connStatus = $('#connectionStatus');
+
+      let newsCache = [];
+      let selectedIds = new Set();
+      let currentFilter = 'all';
+      let currentPage = 1;
+      let totalPages = 1;
+      let currentSearch = '';
+      let currentSort = 'date-desc';
+      let chart;
+      let es = null;
+      let esManualOff = false;
+      let openDetailId = null;
+      let refreshIntervalId = null;
+
+      const pageSize = 50;
+      let lastUpdateTime = new Date();
+
+      /* =============== Tabs =============== */
+      $$('.tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+          $$('.tab').forEach(t => t.classList.remove('active'));
+          $$('.tab-content').forEach(c => c.classList.remove('active'));
+          this.classList.add('active');
+          $(`#${this.dataset.tab}-tab`).classList.add('active');
+          if (this.dataset.tab === 'feeds') {
+            loadFeeds();
+          } else {
+            maybeCloseFeedTimer();
+          }
+        });
+      });
+
+      /* =============== Toasts + Loading =============== */
+      function toast(msg, type = 'info', timeout = 3000) {
+        if (type === 'info') timeout = 3000;
+        else if (type === 'good' || type === 'bad') timeout = 5000;
+        const t = document.createElement('div');
+        t.className = `toast ${type}`;
+        t.setAttribute('role', 'alert');
+        t.innerHTML = `
+          <div class="icon"><i class="fa-solid fa-bell"></i></div>
+          <div style="flex:1">${msg}</div>
+          <button class="close-btn" aria-label="Close notification"><i class="fa-solid fa-times"></i></button>
+        `;
+        toastsEl.appendChild(t);
+        setTimeout(() => {
+          t.style.animation = 'fade-out .3s ease forwards';
+          setTimeout(() => t.remove(), 300);
+        }, timeout);
+        t.querySelector('.close-btn').addEventListener('click', () => {
+          t.style.animation = 'fade-out .3s ease forwards';
+          setTimeout(() => t.remove(), 300);
+        });
+        if (toastsEl.children.length > 5) {
+          toastsEl.children[0].remove();
+        }
+      }
+
+      function showLoading(t = 'Processing…') {
+        loadTxt.textContent = t;
+        loadEl.style.display = 'flex';
+      }
+      function hideLoading() {
+        loadEl.style.display = 'none';
+      }
+
+      /* =============== Theme =============== */
+      function fmtTextColor() {
+        return getComputedStyle(document.body).getPropertyValue('--text').trim() || '#e6eef9';
+      }
+      function prefersDark() {
+        return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      }
+      function setTheme(dark) {
+        document.body.classList.toggle('light', !dark);
+        $('#themeToggle').innerHTML = dark ? '<i class="fa-solid fa-sun"></i>&nbsp;Light' : '<i class="fa-solid fa-moon"></i>&nbsp;Dark';
+        $('#darkModeToggle').checked = dark;
+        localStorage.setItem('aih_dark', dark ? '1' : '0');
+        const c = fmtTextColor();
+        Chart.defaults.color = c;
+        if (chart) {
+          if (chart.options.plugins?.legend?.labels) {
+            chart.options.plugins.legend.labels.color = c;
+          }
+          if (chart.options.plugins?.tooltip) {
+            chart.options.plugins.tooltip.titleColor = c;
+            chart.options.plugins.tooltip.bodyColor = c;
+          }
+          chart.update();
+          chart.draw();
+        }
+      }
+      const storedTheme = localStorage.getItem('aih_dark');
+      setTheme(storedTheme ? storedTheme === '1' : prefersDark());
+      $('#themeToggle').addEventListener('click', () => setTheme(!(localStorage.getItem('aih_dark') === '1')));
+      $('#darkModeToggle').addEventListener('change', e => setTheme(e.target.checked));
+
+      /* =============== Chart =============== */
+      const CenterText = {
+        id: 'centerText',
+        afterDraw(chart) {
+          const meta = chart.getDatasetMeta(0);
+          if (!meta || !meta.data || !meta.data.length) return;
+          const { x, y } = meta.data[0];
+          const total = chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+          const ctx = chart.ctx;
+          ctx.save();
+          ctx.fillStyle = fmtTextColor();
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.font = '700 22px Inter, system-ui, sans-serif';
+          ctx.fillText(String(total), x, y - 6);
+          ctx.font = '600 12px Inter, system-ui, sans-serif';
+          ctx.globalAlpha = 0.9;
+          ctx.fillText('items', x, y + 14);
+          ctx.restore();
+        }
+      };
+      function initChart() {
+        const ctx = $('#chart').getContext('2d');
+        Chart.defaults.color = fmtTextColor();
+        chart = new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: ['Positive (0)', 'Neutral (0)', 'Negative (0)'],
+            datasets: [{
+              data: [0, 0, 0],
+              backgroundColor: ['#10b981', '#6b7280', '#ef4444'],
+              borderWidth: 0,
+              hoverOffset: 10
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '68%',
+            plugins: {
+              legend: { position: 'bottom', labels: { color: fmtTextColor(), usePointStyle: true, pointStyle: 'circle' } },
+              tooltip: {
+                titleColor: fmtTextColor(),
+                bodyColor: fmtTextColor(),
+                callbacks: {
+                  label: c => {
+                    const v = c.parsed || 0;
+                    const tot = c.dataset.data.reduce((a, b) => a + b, 0);
+                    const pct = tot > 0 ? Math.round((v / tot) * 100) : 0;
+                    return `${c.label}: ${v} (${pct}%)`;
+                  }
+                }
+              }
+            }
+          },
+          plugins: [CenterText]
+        });
+        $('#lastUpdated').textContent = `Last updated: ${lastUpdateTime.toLocaleTimeString()}`;
+      }
+      function updateStats(stats) {
+        if (!stats) return;
+        $('#statTotal').textContent = stats.total || 0;
+        $('#statPos').textContent = stats.positive || 0;
+        $('#statNeu').textContent = stats.neutral || 0;
+        $('#statNeg').textContent = stats.negative || 0;
+        chart.data.datasets[0].data = [stats.positive || 0, stats.neutral || 0, stats.negative || 0];
+        chart.data.labels = [
+          `Positive (${stats.positive || 0})`,
+          `Neutral (${stats.neutral || 0})`,
+          `Negative (${stats.negative || 0})`
+        ];
+        chart.update();
+        if (stats.recent && stats.previous) {
+          const posDiff = (stats.recent.positive || 0) - (stats.previous.positive || 0);
+          const neuDiff = (stats.recent.neutral || 0) - (stats.previous.neutral || 0);
+          const negDiff = (stats.recent.negative || 0) - (stats.previous.negative || 0);
+          $('#posTrend').innerHTML = posDiff > 0 ? `<i class="fa-solid fa-arrow-up trend-up"></i> ${posDiff}`
+            : posDiff < 0 ? `<i class="fa-solid fa-arrow-down trend-down"></i> ${Math.abs(posDiff)}` : '';
+          $('#neuTrend').innerHTML = neuDiff > 0 ? `<i class="fa-solid fa-arrow-up"></i> ${neuDiff}`
+            : neuDiff < 0 ? `<i class="fa-solid fa-arrow-down"></i> ${Math.abs(neuDiff)}` : '';
+          $('#negTrend').innerHTML = negDiff > 0 ? `<i class="fa-solid fa-arrow-up trend-down"></i> ${negDiff}`
+            : negDiff < 0 ? `<i class="fa-solid fa-arrow-down trend-up"></i> ${Math.abs(negDiff)}` : '';
+        }
+      }
+
+      /* =============== List + Detail =============== */
+      function escapeHtml(s) {
+        return s ? String(s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m]) : '';
+      }
+      function removeOpenDetail() {
+        const open = $('.detail-row');
+        if (open) open.remove();
+        openDetailId = null;
+      }
+      function showDetail(id) {
+        const it = newsCache.find(x => String(x.id) === String(id));
+        if (!it) return;
+        if (openDetailId === String(id)) {
+          removeOpenDetail();
+          return;
+        }
+        removeOpenDetail();
+        openDetailId = String(id);
+        const row = $('#item-' + id);
+        if (!row) return;
+        const detail = document.createElement('div');
+        detail.className = 'detail-row';
+        const when = it.date ? `<time datetime="${escapeHtml(it.date)}">${escapeHtml(new Date(it.date).toLocaleString())}</time>` : '';
+        let sourceLink = '';
+        if (it.source) {
+          try {
+            const host = new URL(it.source).hostname.replace(/^www\./, '');
+            sourceLink = ` • <a href="${escapeHtml(it.source)}" target="_blank" rel="noopener noreferrer nofollow">${escapeHtml(host)}</a>`;
+          } catch {}
+        }
+        let sentiment = it.sentiment_label ? `<span class="badge ${it.sentiment_label}">${it.sentiment_label.toUpperCase()}</span>` : '';
+        let ai_html = '';
+        if (it.ai_summary) {
+          try {
+            const p = typeof it.ai_summary === 'string' ? JSON.parse(it.ai_summary) : it.ai_summary;
+            const headline = p.headline || p.takeaway || p.summary || '';
+            let kp = '';
+            if (Array.isArray(p.key_points) && p.key_points.length) {
+              kp = `<div class="ai-key-points"><ul>${p.key_points.slice(0, 5).map(x => `<li>${escapeHtml(String(x))}</li>`).join('')}</ul></div>`;
+            }
+            let insights = '';
+            if (p.entities && typeof p.entities === 'object') {
+              const ents = [];
+              for (const [key, values] of Object.entries(p.entities)) {
+                if (Array.isArray(values) && values.length) {
+                  ents.push(`<div class="content-section"><h4>${escapeHtml(key.charAt(0).toUpperCase() + key.slice(1))}:</h4>${values.map(v => `<span class="badge neutral">${escapeHtml(String(v))}</span>`).join(' ')}</div>`);
+                }
+              }
+              insights = `<div class="ai-insights">${ents.join('')}</div>`;
+            }
+            ai_html = `
+              <div class="ai-analysis">
+                <div class="ai-analysis-header"><i class="fa-solid fa-robot"></i><div>AI Analysis</div></div>
+                ${headline ? `<div class="ai-headline">${escapeHtml(headline)}</div>` : ''}
+                ${kp}
+                ${insights}
+              </div>`;
+          } catch (e) {
+            ai_html = `
+              <div class="ai-analysis">
+                <div class="ai-analysis-header"><i class="fa-solid fa-robot"></i><div>AI Analysis</div></div>
+                <div class="ai-headline">${escapeHtml(String(it.ai_summary))}</div>
+              </div>`;
+          }
+        }
+        detail.innerHTML = `
+          <div class="detail-content">
+            <div style="display:flex;gap:12px;align-items:flex-start">
+              <div class="icon"><i class="fa-solid fa-plane"></i></div>
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:800">${escapeHtml(it.airline || 'News')}</div>
+                <div style="color:var(--muted);margin-top:6px;font-size:.86rem">${when}${sourceLink} ${sentiment}</div>
+                <div class="content-section">
+                  <h4>Overview</h4>
+                  <div class="full-content">
+                    ${escapeHtml(it.content || '').replace(/\n/g, '<br>').split('. ').map(p => p.trim() + '.').join('<br>')}
+                  </div>
+                </div>
+                ${ai_html}
+                <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
+                  <button class="btn btn-primary" onclick="shareItem(${it.id})" aria-label="Share item"><i class="fa-solid fa-share"></i>&nbsp;Share</button>
+                  <button class="btn btn-outline" onclick="exportSingle(${it.id})" aria-label="Export item"><i class="fa-solid fa-file-export"></i>&nbsp;Export</button>
+                  <button class="btn btn-outline" onclick="requestSummary(${it.id})" aria-label="Request AI summary"><i class="fa-solid fa-wand-magic-sparkles"></i>&nbsp;Summarize</button>
+                </div>
+              </div>
+            </div>
+          </div>`;
+        row.insertAdjacentElement('afterend', detail);
+        detail.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      function applySort(items) {
+        const arr = items.slice();
+        if (currentSort === 'date-desc') {
+          arr.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+        } else if (currentSort === 'date-asc') {
+          arr.sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
+        } else if (currentSort === 'alpha-asc') {
+          arr.sort((a, b) => String(a.airline || '').localeCompare(String(b.airline || '')));
+        } else if (currentSort === 'alpha-desc') {
+          arr.sort((a, b) => String(b.airline || '').localeCompare(String(a.airline || '')));
+        }
+        return arr;
+      }
+      function render(items) {
+        listEl.innerHTML = '';
+        let data = (items ?? newsCache);
+        if (currentFilter !== 'all') {
+          data = data.filter(it => it.sentiment_label === currentFilter);
+        }
+        data = applySort(data);
+        if (data.length === 0) {
+          listEl.innerHTML = '<div style="padding:12px;color:var(--muted)">No news. Ingest or change filters.</div>';
+          return;
+        }
+        for (const it of data) {
+          const row = document.createElement('div');
+          row.className = 'item';
+          row.id = `item-${it.id}`;
+          const head = document.createElement('div');
+          head.className = 'row-head';
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.className = 'check';
+          cb.checked = selectedIds.has(it.id);
+          cb.addEventListener('click', ev => {
+            ev.stopPropagation();
+            if (ev.currentTarget.checked) selectedIds.add(it.id);
+            else selectedIds.delete(it.id);
+            updateSelCount();
+          });
+          const icon = document.createElement('div');
+          icon.className = 'icon';
+          icon.innerHTML = '<i class="fa-solid fa-plane"></i>';
+          head.appendChild(cb);
+          head.appendChild(icon);
+          const body = document.createElement('div');
+          body.style.flex = '1';
+          const title = document.createElement('div');
+          title.style.fontWeight = '800';
+          title.textContent = it.airline || 'News';
+          const badge = document.createElement('span');
+          badge.className = `badge ${it.sentiment_label || 'neutral'}`;
+          badge.textContent = (it.sentiment_label || 'neutral').toUpperCase();
+          title.appendChild(badge);
+          const text = document.createElement('div');
+          text.style.marginTop = '6px';
+          let snippet = '';
+          let hasAi = false;
+          if (it.ai_summary) {
+            hasAi = true;
+            try {
+              const p = typeof it.ai_summary === 'string' ? JSON.parse(it.ai_summary) : it.ai_summary;
+              snippet = p?.summary || p?.headline || p?.takeaway || '';
+              if (!snippet && typeof it.ai_summary === 'string') snippet = it.ai_summary.slice(0, 400);
+            } catch (e) {
+              snippet = String(it.ai_summary).slice(0, 400);
+            }
+          }
+          if (snippet) {
+            text.innerHTML = `<strong style="color:var(--primary)"><i class="fa-solid fa-wand-magic-sparkles"></i> AI:</strong> ${snippet.length > 220 ? escapeHtml(snippet.slice(0, 220)) + '…' : escapeHtml(snippet)}`;
+          } else {
+            text.textContent = it.content ? (it.content.length > 220 ? it.content.slice(0, 220) + '…' : it.content) : '';
+          }
+          const meta = document.createElement('div');
+          meta.style.cssText = 'margin-top:6px;color:var(--muted);font-size:.86rem';
+          const when = it.date ? new Date(it.date).toLocaleString() : '';
+          meta.textContent = when + (it.source ? (' • ' + it.source) : '');
+          body.appendChild(title);
+          body.appendChild(text);
+          body.appendChild(meta);
+          row.appendChild(head);
+          row.appendChild(body);
+          row.addEventListener('click', () => showDetail(it.id));
+          if (hasAi) row.classList.add('new-content');
+          listEl.appendChild(row);
+        }
+      }
+      function updateSelCount() {
+        selCountEl.textContent = String(selectedIds.size);
+      }
+
+      /* =============== SSE (EventSource) =============== */
+      function openSSE() {
+        if (es || esManualOff) return;
+        es = new EventSource('/api/ai/updates');
+        es.onopen = () => {
+          connStatus.innerHTML = '<i class="fa-solid fa-circle-dot" style="color:#22c55e"></i> Connected';
+          toast('Real-time connection established', 'good', 2200);
+        };
+        es.onerror = () => {
+          connStatus.innerHTML = '<i class="fa-solid fa-circle-dot" style="color:#ef4444"></i> Disconnected';
+        };
+        const relay = evtName => es.addEventListener(evtName, e => document.body.dispatchEvent(new CustomEvent(evtName, { detail: e.data })));
+        ['summary_updated', 'summary_batch_complete', 'ingest_complete', 'feed_refreshed', 'feed_error', 'connected', 'reload_page', 'toast'].forEach(relay);
+      }
+      function closeSSE() {
+        if (es) {
+          es.close();
+          es = null;
+        }
+        connStatus.innerHTML = '<i class="fa-solid fa-circle-dot" style="color:#9ca3af"></i> Disconnected';
+      }
+      openSSE();
+      document.body.addEventListener('summary_updated', evt => {
+        try {
+          const data = JSON.parse(evt.detail);
+          for (let i = 0; i < newsCache.length; i++) {
+            if (String(newsCache[i].id) === String(data.id)) {
+              newsCache[i].ai_summary = data.ai_summary;
+              if (openDetailId === String(data.id)) showDetail(data.id);
+              break;
+            }
+          }
+          lastUpdateTime = new Date();
+          $('#lastUpdated').textContent = `Last updated: ${lastUpdateTime.toLocaleTimeString()}`;
+          render(newsCache);
+        } catch (e) {
+          console.warn('bad SSE payload', e);
+        }
+      });
+      document.body.addEventListener('summary_batch_complete', evt => {
+        try {
+          const data = JSON.parse(evt.detail);
+          if (!toastsEl.querySelector('.toast.good')) {
+            toast(`AI summaries completed: ${data.updated} items updated`, 'good');
+          }
+          loadStats();
+        } catch {}
+      });
+      document.body.addEventListener('ingest_complete', e => {
+        try {
+          const d = JSON.parse(e.detail);
+          toast(`Successfully ingested ${d.news_items_count} items`, 'good');
+          loadStats();
+          loadPage(1);
+        } catch {}
+      });
+      document.body.addEventListener('feed_refreshed', () => {
+        if ($('#feeds-tab').classList.contains('active')) loadFeeds();
+      });
+      document.body.addEventListener('feed_error', e => {
+        try {
+          const d = JSON.parse(e.detail);
+          toast(`Feed refresh failed: ${d.error}`, 'bad');
+        } catch {}
+      });
+      document.body.addEventListener('reload_page', () => {
+        loadPage(currentPage);
+      });
+      document.body.addEventListener('toast', e => {
+        try {
+          const d = JSON.parse(e.detail);
+          toast(d.message, d.tone);
+        } catch {}
+      });
+
+      /* =============== Data Loading =============== */
+      async function loadStats() {
+        try {
+          const s = await fetch('/api/stats').then(r => r.json());
+          updateStats(s);
+        } catch (e) {
+          console.warn(e);
+        }
+      }
+      async function loadPage(page = 1) {
+        showLoading('Loading…');
+        currentPage = page;
+        const q = new URLSearchParams();
+        q.set('page', String(currentPage));
+        q.set('per_page', String(pageSize));
+        if (currentFilter !== 'all') q.set('filter', currentFilter);
+        if (currentSearch) q.set('search', currentSearch);
+        try {
+          const data = await fetch('/api/emails?' + q.toString()).then(r => r.json());
+          newsCache = data.news_items || [];
+          totalPages = Math.max(1, data.total_pages || 1);
+          const keepId = openDetailId;
+          render(newsCache);
+          renderPagi();
+          if (keepId) {
+            const exists = newsCache.some(it => String(it.id) === String(keepId));
+            if (exists) showDetail(keepId);
+            else removeOpenDetail();
+          }
+        } catch (e) {
+          console.error(e);
+          toast('Failed to load page', 'bad');
+        } finally {
+          hideLoading();
+        }
+      }
+      function renderPagi() {
+        pagiEl.innerHTML = '';
+        const mk = (label, page, disabled = false, active = false) => {
+          const b = document.createElement('button');
+          b.className = `pbtn ${active ? 'active' : ''} ${disabled ? 'disabled' : ''}`;
+          b.textContent = label;
+          b.disabled = disabled;
+          b.addEventListener('click', () => { if (!disabled) loadPage(page); });
+          return b;
+        };
+        pagiEl.appendChild(mk('«', Math.max(1, currentPage - 1), currentPage === 1));
+        const start = Math.max(1, currentPage - 3);
+        const end = Math.min(totalPages, start + 6);
+        for (let p = start; p <= end; p++) {
+          pagiEl.appendChild(mk(String(p), p, false, p === currentPage));
+        }
+        pagiEl.appendChild(mk('»', Math.min(totalPages, currentPage + 1), currentPage === totalPages));
+      }
+
+      /* =============== Feeds =============== */
+      async function loadFeeds() {
+        try {
+          const el = $('#feedsList');
+          el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)"><i class="fa-solid fa-spinner fa-spin"></i> Loading feeds...</div>';
+          const res = await fetch('/api/feeds').then(r => r.json());
+          if (!res.feeds || !res.feeds.length) {
+            el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">No feeds configured. Ingest a feed URL to add it.</div>';
+            return;
+          }
+          el.innerHTML = '';
+          for (const feed of res.feeds) {
+            const last = feed.last_fetch ? new Date(feed.last_fetch).toLocaleString() : 'Never';
+            const st = feed.status === 'ok' ? 'ok' : 'error';
+            const node = document.createElement('div');
+            node.className = 'feed-item';
+            node.innerHTML = `
+              <div class="feed-details">
+                <div class="feed-title">${escapeHtml(feed.title || 'Unnamed Feed')}</div>
+                <div class="feed-url">${escapeHtml(feed.url)}</div>
+                <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+                  <span class="feed-status ${st}">${feed.status || 'unknown'}</span>
+                  <span class="feed-date">Last fetch: ${last}</span>
+                </div>
+              </div>
+              <div class="feed-actions">
+                <button class="btn btn-outline refresh-feed-btn" data-id="${feed.id}" aria-label="Refresh feed"><i class="fa-solid fa-rotate"></i> Refresh</button>
+                <button class="btn btn-danger delete-feed-btn" data-id="${feed.id}" aria-label="Delete feed"><i class="fa-solid fa-trash"></i></button>
+              </div>`;
+            el.appendChild(node);
+          }
+          $$('.refresh-feed-btn').forEach(btn => {
+            btn.addEventListener('click', async e => {
+              const id = e.currentTarget.dataset.id;
+              showLoading('Refreshing feed…');
+              try {
+                await fetch(`/api/feeds/refresh?id=${id}`, { method: 'POST' });
+                toast('Feed refresh started', 'info');
+              } catch {
+                toast('Error refreshing feed', 'bad');
+              } finally {
+                hideLoading();
+              }
+            });
+          });
+          $$('.delete-feed-btn').forEach(btn => {
+            btn.addEventListener('click', async e => {
+              if (!confirm('Delete this feed?')) return;
+              const id = e.currentTarget.dataset.id;
+              showLoading('Deleting feed…');
+              try {
+                await fetch(`/api/feeds/${id}`, { method: 'DELETE' });
+                toast('Feed deleted', 'good');
+                loadFeeds();
+              } catch {
+                toast('Error deleting feed', 'bad');
+              } finally {
+                hideLoading();
+              }
+            });
+          });
+          ensureFeedTimer();
+        } catch (e) {
+          console.error(e);
+          $('#feedsList').innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">Error loading feeds.</div>';
+          toast('Failed to load feeds', 'bad');
+        }
+      }
+      function ensureFeedTimer() {
+        const mins = parseInt($('#refreshInterval').value, 10) || 0;
+        maybeCloseFeedTimer();
+        if (mins > 0) {
+          refreshIntervalId = setInterval(async () => {
+            try {
+              await fetch('/api/feeds/refresh', { method: 'POST' });
+            } catch {}
+            loadFeeds();
+          }, mins * 60 * 1000);
+        }
+      }
+      function maybeCloseFeedTimer() {
+        if (refreshIntervalId) {
+          clearInterval(refreshIntervalId);
+          refreshIntervalId = null;
+        }
+      }
+      $('#refreshInterval').addEventListener('change', ensureFeedTimer);
+      $('#refreshAllFeedsBtn').addEventListener('click', async () => {
+        showLoading('Refreshing all feeds…');
+        try {
+          await fetch('/api/feeds/refresh', { method: 'POST' });
+          toast('All feeds refresh started', 'info');
+        } catch {
+          toast('Error refreshing feeds', 'bad');
+        } finally {
+          hideLoading();
+        }
+      });
+
+      /* =============== Search / Filters / Sort / Export =============== */
+      $('#search').addEventListener('input', e => {
+        currentSearch = (e.target.value || '').trim();
+        loadPage(1);
+      });
+      $$('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', ev => {
+          $$('.filter-btn').forEach(b => b.classList.remove('active'));
+          ev.currentTarget.classList.add('active');
+          currentFilter = ev.currentTarget.getAttribute('data-filter') || 'all';
+          loadPage(1);
+        });
+      });
+      $$('.sort-btn').forEach(btn => {
+        btn.addEventListener('click', ev => {
+          $$('.sort-btn').forEach(b => b.classList.remove('active'));
+          ev.currentTarget.classList.add('active');
+          currentSort = ev.currentTarget.getAttribute('data-sort') || 'date-desc';
+          render(newsCache);
+        });
+      });
+      $('#exportBtn').addEventListener('click', () => {
+        const q = new URLSearchParams();
+        q.set('format', 'csv');
+        if (currentFilter !== 'all') q.set('filter', currentFilter);
+        window.location = '/api/export?' + q.toString();
+      });
+      $('#exportAllBtn').addEventListener('click', () => {
+        window.location = '/api/export?format=csv&include_summary=1';
+      });
+
+      /* =============== Selection / Cache / SSE toggle =============== */
+      $('#selectAllBtn').addEventListener('click', () => {
+        for (const it of newsCache) selectedIds.add(it.id);
+        updateSelCount();
+        render();
+      });
+      $('#clearSelBtn').addEventListener('click', () => {
+        selectedIds.clear();
+        updateSelCount();
+        render();
+      });
+      $('#clearCacheBtn').addEventListener('click', () => {
+        if (confirm('Clear all local browser storage?')) {
+          localStorage.clear();
+          toast('Local cache cleared', 'info');
+          setTimeout(() => window.location.reload(), 800);
+        }
+      });
+      $('#sseToggle').addEventListener('change', e => {
+        if (e.target.checked) {
+          esManualOff = false;
+          openSSE();
+        } else {
+          esManualOff = true;
+          closeSSE();
+        }
+      });
+
+      /* =============== Ingest & Summarize =============== */
+      $('#ingestBtn').addEventListener('click', () => {
+        const url = $('#emailUrl').value.trim();
+        if (!url) {
+          toast('Please enter a URL', 'bad');
+          return;
+        }
+        const auto = $('#autoAddFeed').checked ? 1 : 0;
+        showLoading('Ingesting content…');
+        fetch('/api/ingest', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url, auto_add_feed: auto })
+        })
+          .then(r => r.json())
+          .then(d => {
+            hideLoading();
+            if (d.status === 'ok') {
+              toast(`Successfully ingested ${d.news_items_count} items`, 'good');
+              loadStats();
+              loadPage(1);
+            } else if (d.status === 'not_modified') {
+              toast('No new items found (content not modified)', 'info');
+              loadStats();
+            } else {
+              toast(`Ingestion failed: ${d.error || d.status || 'Unknown error'}`, 'bad');
+            }
+          })
+          .catch(e => {
+            hideLoading();
+            toast('Request failed: ' + e, 'bad');
+          });
+      });
+      $('#summBtn').addEventListener('click', () => {
+        const ids = [...selectedIds];
+        if (ids.length === 0) return toast('Please select items to summarize', 'info');
+        showLoading('Processing AI summaries…');
+        fetch('/api/ai/summarize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode: 'selected_only', ids })
+        })
+          .then(r => r.json())
+          .then(d => {
+            hideLoading();
+          })
+          .catch(e => {
+            hideLoading();
+            toast('Request failed: ' + e, 'bad');
+          });
+      });
+      $('#summPageBtn').addEventListener('click', () => {
+        showLoading('Processing AI summaries…');
+        fetch('/api/ai/summarize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode: 'page' })
+        })
+          .then(r => r.json())
+          .then(d => {
+            hideLoading();
+          })
+          .catch(e => {
+            hideLoading();
+            toast('Request failed: ' + e, 'bad');
+          });
+      });
+
+      /* =============== Share/Export/Request =============== */
+      window.shareItem = async function(id) {
+        const it = newsCache.find(x => String(x.id) === String(id));
+        if (!it) return toast('Item not found', 'bad');
+        const shareText = `${it.airline || 'Aviation News'}\n\n${it.content || ''}${it.source ? '\n\nSource: ' + it.source : ''}`;
+        if (navigator.share) {
+          try {
+            await navigator.share({
+              title: it.airline || 'Aviation News',
+              text: shareText,
+              url: it.source || ''
+            });
+          } catch (e) {
+            if (navigator.clipboard) {
+              await navigator.clipboard.writeText(shareText);
+              toast('Content copied to clipboard', 'info');
+            }
+          }
+        } else {
+          if (navigator.clipboard) {
+            await navigator.clipboard.writeText(shareText);
+            toast('Content copied to clipboard', 'info');
+          } else {
+            toast('Sharing not supported on this device', 'info');
+          }
+        }
+      };
+      window.exportSingle = id => {
+        window.location = `/api/export?format=csv&single=${id}&include_summary=1`;
+      };
+      window.requestSummary = function(id) {
+        showLoading('Requesting AI analysis…');
+        fetch('/api/ai/summarize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode: 'selected_only', ids: [id] })
+        })
+          .then(r => r.json())
+          .then(d => {
+            hideLoading();
+            d.ok ? toast('AI analysis requested - results will appear shortly', 'info') : toast('Analysis request failed', 'bad');
+          })
+          .catch(e => {
+            hideLoading();
+            toast('Request failed: ' + e, 'bad');
+          });
+      };
+
+      /* =============== Boot =============== */
+      initChart();
+      loadStats();
+      loadPage(1);
+      updateSelCount();
+    })();
+  </script>
+</body>
+</html>

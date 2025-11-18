@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="space-y-6">
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h1 class="text-3xl font-bold text-gray-900 mb-4">Search Articles</h1>
+        <form hx-get="{{ url_for('search') }}" hx-target="#search-results" hx-swap="innerHTML" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div class="lg:col-span-2">
+                    <label for="search-query" class="block text-sm font-medium text-gray-700 mb-2">Search Terms</label>
+                    <input type="text" id="search-query" name="q" value="{{ query }}" placeholder="Search titles, content, keywords..." class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" hx-trigger="keyup changed delay:300ms" hx-get="{{ url_for('search') }}" hx-target="#search-results">
+                </div>
+                <div>
+                    <label for="search-type" class="block text-sm font-medium text-gray-700 mb-2">Search Type</label>
+                    <select id="search-type" name="type" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="all">All Fields</option>
+                        <option value="title">Title Only</option>
+                        <option value="content">Content Only</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex justify-between items-center">
+                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors">
+                    <span class="htmx-indicator loading-spinner mr-2"></span>🔍 Search
+                </button>
+                <button type="button" onclick="document.querySelector('form').reset(); document.getElementById('search-results').innerHTML = '';" class="bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-md transition-colors">Clear</button>
+            </div>
+        </form>
+    </div>
+    
+    <div id="search-results">
+        {% if query %}
+            {% if articles %}
+            <div class="bg-white rounded-lg shadow-md p-4 mb-4">
+                <h3 class="text-lg font-semibold">Found {{ articles|length }} articles for "{{ query }}"</h3>
+            </div>
+            <div class="space-y-4">
+                {% for article in articles %}
+                <div class="bg-white rounded-lg shadow-md p-6 article-card fade-in">
+                    <div class="flex justify-between items-start mb-3">
+                        <h2 class="text-xl font-semibold text-gray-900 flex-grow mr-4">{{ article.title }}</h2>
+                        <div class="flex flex-col items-end space-y-2 flex-shrink-0">
+                            <span class="sentiment-{{ article.sentiment_label|lower }} px-3 py-1 rounded-full border text-sm font-medium">{{ article.sentiment_label }}</span>
+                            <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">{{ article.category }}</span>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap items-center space-x-4 text-sm text-gray-600 mb-3">
+                        <span>{{ article.source }}</span>
+                        <span>{{ (article.date_published or '')[:10] if article.date_published else 'Unknown' }}</span>
+                        <span>{{ article.word_count or 0 }} words</span>
+                        <span>Score: {{ "%.3f"|format(article.sentiment_score or 0) }}</span>
+                    </div>
+                    <p class="text-gray-700 mb-4">{{ article.content[:300] }}{% if article.content|length > 300 %}...{% endif %}</p>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="bg-white rounded-lg shadow-md p-12 text-center">
+                <h3 class="text-lg font-medium text-gray-900 mb-2">No results found</h3>
+                <p class="text-gray-600 mb-4">No articles match your search criteria for "{{ query }}"</p>
+            </div>
+            {% endif %}
+        {% else %}
+        <div class="bg-white rounded-lg shadow-md p-12 text-center">
+            <h3 class="text-lg font-medium text-gray-900 mb-2">Start your search</h3>
+            <p class="text-gray-600">Enter keywords above to search through your aviation news collection</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

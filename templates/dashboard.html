@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="space-y-8">
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">Aviation News Dashboard</h1>
+        <p class="text-gray-600">Real-time analytics and insights from your aviation news collection</p>
+    </div>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="bg-white rounded-lg shadow-md p-6 text-center">
+            <div class="text-3xl font-bold text-blue-600 mb-2">{{ analytics.total_articles }}</div>
+            <div class="text-gray-600">Total Articles</div>
+        </div>
+        <div class="bg-white rounded-lg shadow-md p-6 text-center">
+            <div class="text-3xl font-bold {% if analytics.avg_sentiment > 0 %}text-green-600{% elif analytics.avg_sentiment < 0 %}text-red-600{% else %}text-gray-600{% endif %} mb-2">
+                {{ "%.3f"|format(analytics.avg_sentiment) }}
+            </div>
+            <div class="text-gray-600">Avg Sentiment</div>
+        </div>
+        <div class="bg-white rounded-lg shadow-md p-6 text-center">
+            <div class="text-3xl font-bold text-purple-600 mb-2">{{ analytics.top_categories|length }}</div>
+            <div class="text-gray-600">Categories</div>
+        </div>
+        <div class="bg-white rounded-lg shadow-md p-6 text-center">
+            <div class="text-3xl font-bold text-orange-600 mb-2">{{ analytics.top_sources|length }}</div>
+            <div class="text-gray-600">Sources</div>
+        </div>
+    </div>
+    
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold mb-4">Sentiment Distribution</h2>
+            <canvas id="sentimentChart" width="400" height="300"></canvas>
+        </div>
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold mb-4">Top Categories</h2>
+            <div class="space-y-3">
+                {% for category, count in analytics.top_categories %}
+                <div class="flex justify-between items-center">
+                    <span class="font-medium">{{ category }}</span>
+                    <div class="flex items-center space-x-2">
+                        <div class="bg-blue-200 rounded-full h-2 w-20">
+                            <div class="bg-blue-600 h-2 rounded-full" style="width: {{ (count / analytics.top_categories[0][1] * 100)|round }}%"></div>
+                        </div>
+                        <span class="text-sm text-gray-600">{{ count }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-semibold">Recent Articles</h2>
+            <a href="{{ url_for('catalog') }}" class="text-blue-600 hover:text-blue-800 transition-colors">View All →</a>
+        </div>
+        <div class="space-y-4">
+            {% for article in recent_articles %}
+            <div class="border-l-4 {% if article.sentiment_label == 'Positive' %}border-green-500{% elif article.sentiment_label == 'Negative' %}border-red-500{% else %}border-gray-500{% endif %} pl-4 py-2">
+                <h3 class="font-semibold text-gray-900">{{ article.title }}</h3>
+                <div class="flex items-center space-x-4 text-sm text-gray-600 mt-1">
+                    <span>{{ article.source }}</span>
+                    <span>{{ (article.date_published or '')[:10] if article.date_published else 'Unknown' }}</span>
+                    <span class="sentiment-{{ article.sentiment_label|lower }} px-2 py-1 rounded-full border text-xs">{{ article.sentiment_label }}</span>
+                    <span>{{ article.category }}</span>
+                </div>
+                <p class="text-gray-700 mt-2">{{ article.content[:200] }}...</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<script>
+const sentimentCtx = document.getElementById('sentimentChart').getContext('2d');
+const labels = [{% for item in analytics.sentiment_distribution %}'{{ item[0] }}'{% if not loop.last %},{% endif %}{% endfor %}];
+const dataVals = [{% for item in analytics.sentiment_distribution %}{{ item[1] }}{% if not loop.last %},{% endif %}{% endfor %}];
+new Chart(sentimentCtx, {
+    type: 'doughnut',
+    data: {
+        labels: labels,
+        datasets: [{
+            data: dataVals,
+            backgroundColor: ['#10B981', '#EF4444', '#6B7280'],
+            borderWidth: 2,
+            borderColor: '#fff'
+        }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+});
+</script>
+{% endblock %}

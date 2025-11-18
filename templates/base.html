@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Aviation News Catalog{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .htmx-indicator { opacity: 0; transition: opacity 500ms ease-in; }
+        .htmx-request .htmx-indicator { opacity: 1; }
+        /* Replace Tailwind @apply with plain CSS colors to avoid build step */
+        .sentiment-positive { background-color:#dcfce7; color:#166534; border:1px solid #bbf7d0; }
+        .sentiment-negative { background-color:#fee2e2; color:#991b1b; border:1px solid #fecaca; }
+        .sentiment-neutral  { background-color:#f3f4f6; color:#374151; border:1px solid #e5e7eb; }
+        .article-card { transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out; }
+        .article-card:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
+        .loading-spinner { border: 2px solid #f3f3f3; border-top: 2px solid #3498db; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: inline-block; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <nav class="bg-blue-900 text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center space-x-8">
+                    <a href="{{ url_for('index') }}" class="text-xl font-bold">✈️ Aviation News Catalog</a>
+                    <div class="hidden md:flex space-x-4">
+                        <a href="{{ url_for('index') }}" class="hover:bg-blue-800 px-3 py-2 rounded-md transition-colors">Dashboard</a>
+                        <a href="{{ url_for('catalog') }}" class="hover:bg-blue-800 px-3 py-2 rounded-md transition-colors">Catalog</a>
+                        <a href="{{ url_for('upload') }}" class="hover:bg-blue-800 px-3 py-2 rounded-md transition-colors">Upload</a>
+                        <a href="{{ url_for('search') }}" class="hover:bg-blue-800 px-3 py-2 rounded-md transition-colors">Search</a>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <form hx-get="{{ url_for('search') }}" hx-target="#search-results" hx-trigger="keyup changed delay:300ms" class="flex">
+                        <input type="text" name="q" placeholder="Search articles..." class="px-3 py-1 rounded-l-md text-black focus:outline-none focus:ring-2 focus:ring-blue-300">
+                        <button type="submit" class="bg-blue-700 hover:bg-blue-600 px-3 py-1 rounded-r-md transition-colors">🔍</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+                {% for category, message in messages %}
+                    <div class="alert mb-4 p-4 rounded-md {% if category == 'success' %}bg-green-100 text-green-800 border border-green-200{% elif category == 'error' %}bg-red-100 text-red-800 border border-red-200{% else %}bg-blue-100 text-blue-800 border border-blue-200{% endif %} fade-in">
+                        <div class="flex justify-between items-center">
+                            <span>{{ message }}</span>
+                            <button onclick="this.parentElement.parentElement.remove()" class="text-xl font-bold hover:opacity-70">&times;</button>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+    
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {% block content %}{% endblock %}
+    </main>
+    
+    <footer class="bg-gray-800 text-white mt-16">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="flex justify-between items-center">
+                <div><p>&copy; 2025 Aviation News Catalog. Built with Python, Flask &amp; HTMX.</p></div>
+                <div class="flex space-x-4">
+                    <a href="{{ url_for('export') }}" class="hover:text-blue-300 transition-colors">📊 Export Data</a>
+                    <a href="{{ url_for('api_analytics') }}" class="hover:text-blue-300 transition-colors">📈 API</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+    
+    <script>
+        // Catch unhandled promise rejections related to message channel errors (often from browser extensions)
+        window.addEventListener('unhandledrejection', function(event) {
+            if (event.reason && typeof event.reason.message === 'string' &&
+                event.reason.message.includes('listener indicated an asynchronous response by returning true, but the message channel closed before a response was received')) {
+                // Suppress error from browser extensions interfering
+                event.preventDefault();
+            }
+        });
+
+        htmx.config.globalViewTransitions = true;
+        document.body.addEventListener('htmx:beforeRequest', function(event) {
+            const indicator = event.target.querySelector('.htmx-indicator');
+            if (indicator) indicator.style.display = 'inline-block';
+        });
+        document.body.addEventListener('htmx:afterRequest', function(event) {
+            const indicator = event.target.querySelector('.htmx-indicator');
+            if (indicator) indicator.style.display = 'none';
+        });
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

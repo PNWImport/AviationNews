@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="space-y-6">
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900">News Catalog</h1>
+                <p class="text-gray-600 mt-1">Browse and filter your aviation news collection</p>
+            </div>
+            <div class="flex flex-wrap gap-3">
+                <select hx-get="{{ url_for('catalog') }}" hx-target="#article-list" hx-trigger="change" name="category" class="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">All Categories</option>
+                    <option value="Safety">Safety</option>
+                    <option value="Commercial">Commercial</option>
+                    <option value="Military">Military</option>
+                    <option value="Technology">Technology</option>
+                    <option value="Business">Business</option>
+                    <option value="Regulatory">Regulatory</option>
+                </select>
+                <button hx-get="{{ url_for('catalog') }}" hx-target="#article-list" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md transition-colors">Reset Filters</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="article-list" class="space-y-4">
+        {% for article in articles %}
+        <div class="bg-white rounded-lg shadow-md p-6 article-card fade-in">
+            <div class="flex justify-between items-start mb-3">
+                <h2 class="text-xl font-semibold text-gray-900 flex-grow mr-4">{{ article.title }}</h2>
+                <div class="flex flex-col items-end space-y-2 flex-shrink-0">
+                    <span class="sentiment-{{ article.sentiment_label|lower }} px-3 py-1 rounded-full border text-sm font-medium">{{ article.sentiment_label }}</span>
+                    <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">{{ article.category }}</span>
+                </div>
+            </div>
+            <div class="flex flex-wrap items-center space-x-4 text-sm text-gray-600 mb-3">
+                <span>{{ article.source }}</span>
+                <span>{{ (article.date_published or '')[:16] if article.date_published else 'Unknown' }}</span>
+                <span>{{ article.word_count or 0 }} words</span>
+                {% if article.reading_time %}<span>{{ article.reading_time }} min read</span>{% endif %}
+            </div>
+            <p class="text-gray-700 mb-4">{{ article.content[:300] }}{% if article.content|length > 300 %}...{% endif %}</p>
+            <div class="flex justify-between items-center pt-4 border-t border-gray-200">
+                <button class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-sm transition-colors">Read Full Article</button>
+                <div class="text-xs text-gray-500">Sentiment Score: {{ "%.3f"|format(article.sentiment_score or 0) }}</div>
+            </div>
+        </div>
+        {% endfor %}
+        
+        {% if not articles %}
+        <div class="bg-white rounded-lg shadow-md p-12 text-center">
+            <h3 class="text-lg font-medium text-gray-900 mb-2">No articles found</h3>
+            <p class="text-gray-600 mb-4">Try adjusting your filters or upload some content to get started.</p>
+            <a href="{{ url_for('upload') }}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors">Upload Content</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
