@@ -34,7 +34,7 @@ class Config:
     WORKER_TIMEOUT: float = float(os.environ.get("WORKER_TIMEOUT", "90"))  # Reduced timeout
 
     # Feed Processing Settings
-    MAX_FEED_WORKERS: int = int(os.environ.get("MAX_FEED_WORKERS", "5"))
+    MAX_FEED_WORKERS: int = int(os.environ.get("MAX_FEED_WORKERS", "10"))
 
     # Server Configuration
     PORT: int = int(os.environ.get("PORT", "5001"))
