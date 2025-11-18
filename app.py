@@ -1160,25 +1160,32 @@ def _normalize_item(it: Dict[str, Any]) -> Dict[str, Any]:
         "date": (it.get("date") or "") or ""
     }
 
-def _call_worker(items: List[Dict[str, Any]]) -> Dict[str, Any]:
-    headers = {
-        "Authorization": f"Bearer {config.CF_WORKER_TOKEN}",
-        "Content-Type": "application/json",
-    }
+# Create a requests session for connection pooling (reuse connections)
+worker_session = requests.Session()
+worker_session.headers.update({
+    "Authorization": f"Bearer {config.CF_WORKER_TOKEN}",
+    "Content-Type": "application/json",
+})
+
+def _call_worker(items: List[Dict[str, Any]], batch_num: int = 0) -> Dict[str, Any]:
+    """Call worker with a batch of items. Uses session for connection pooling."""
     body = {"items": items}
     try:
-        r = requests.post(config.CF_WORKER_URL, headers=headers, json=body, timeout=config.WORKER_TIMEOUT)
+        log.info(f"Sending batch {batch_num} with {len(items)} items to worker")
+        r = worker_session.post(config.CF_WORKER_URL, json=body, timeout=config.WORKER_TIMEOUT)
+        log.info(f"Batch {batch_num} completed in {r.elapsed.total_seconds():.2f}s")
     except Exception as e:
-        log.exception("Worker request exception")
-        return {"error": f"worker request failed: {str(e)}"}
+        log.exception(f"Worker request exception for batch {batch_num}")
+        return {"error": f"worker request failed: {str(e)}", "batch": batch_num}
 
     try:
         data = r.json()
     except Exception:
-        data = {"error": f"invalid JSON from worker (status {r.status_code})", "raw": r.text[:1000]}
+        data = {"error": f"invalid JSON from worker (status {r.status_code})", "raw": r.text[:1000], "batch": batch_num}
 
     if r.status_code != 200 and "error" not in data:
         data["error"] = f"worker status {r.status_code}"
+        data["batch"] = batch_num
     return data
 
 @app.route("/api/ai/summarize", methods=["POST"])
@@ -1244,26 +1251,43 @@ def api_ai_summarize():
         coarse_sent = {"label": "neutral", "score": 0.0}
         worker_errors: List[str] = []
 
-        for b in batches:
-            resp = _call_worker(b)
-            if not isinstance(resp, dict):
-                worker_errors.append("invalid worker response")
-                continue
-            if resp.get("error"):
-                worker_errors.append(str(resp.get("error")))
-                continue
-            summaries = resp.get("summaries") or {}
-            if isinstance(summaries, dict):
-                all_summaries.update({str(k): v for k, v in summaries.items()})
-            if resp.get("overall_summary"):
-                overall_parts.append(str(resp["overall_summary"]))
-            s = resp.get("sentiment")
-            if isinstance(s, dict):
+        log.info(f"Processing {len(batches)} batches ({len(items_for_worker)} items total) in parallel (max {config.WORKER_PARALLEL_BATCHES} concurrent)")
+
+        # Process batches in parallel using ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=config.WORKER_PARALLEL_BATCHES) as executor:
+            # Submit all batches to the executor
+            future_to_batch = {executor.submit(_call_worker, batch, i): i for i, batch in enumerate(batches)}
+
+            # Process results as they complete (not in order, but faster!)
+            for future in as_completed(future_to_batch):
+                batch_num = future_to_batch[future]
                 try:
-                    coarse_sent["label"] = s.get("label", coarse_sent["label"]) or coarse_sent["label"]
-                    coarse_sent["score"] = (coarse_sent.get("score", 0.0) + float(s.get("score", 0.0))) / 2.0
-                except Exception:
-                    pass
+                    resp = future.result()
+                    if not isinstance(resp, dict):
+                        worker_errors.append(f"Batch {batch_num}: invalid worker response")
+                        continue
+                    if resp.get("error"):
+                        worker_errors.append(f"Batch {batch_num}: {str(resp.get('error'))}")
+                        continue
+
+                    # Process successful response
+                    summaries = resp.get("summaries") or {}
+                    if isinstance(summaries, dict):
+                        all_summaries.update({str(k): v for k, v in summaries.items()})
+                    if resp.get("overall_summary"):
+                        overall_parts.append(str(resp["overall_summary"]))
+                    s = resp.get("sentiment")
+                    if isinstance(s, dict):
+                        try:
+                            coarse_sent["label"] = s.get("label", coarse_sent["label"]) or coarse_sent["label"]
+                            coarse_sent["score"] = (coarse_sent.get("score", 0.0) + float(s.get("score", 0.0))) / 2.0
+                        except Exception:
+                            pass
+
+                    log.info(f"Batch {batch_num} processed successfully: {len(summaries)} summaries")
+                except Exception as e:
+                    log.exception(f"Batch {batch_num} failed with exception: {e}")
+                    worker_errors.append(f"Batch {batch_num}: {str(e)}")
 
         updated = 0
         conn = get_thread_db()

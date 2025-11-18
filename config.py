@@ -27,10 +27,11 @@ class Config:
     CF_WORKER_TOKEN: str = os.environ.get("CF_WORKER_TOKEN", "super-secret-123!")
 
     # AI Content Settings
-    MAX_CONTENT_CHARS_TO_WORKER: int = int(os.environ.get("MAX_CONTENT_CHARS_TO_WORKER", "3000"))
-    WORKER_BATCH_SIZE: int = int(os.environ.get("WORKER_BATCH_SIZE", "12"))
+    MAX_CONTENT_CHARS_TO_WORKER: int = int(os.environ.get("MAX_CONTENT_CHARS_TO_WORKER", "2500"))  # Reduced for faster processing
+    WORKER_BATCH_SIZE: int = int(os.environ.get("WORKER_BATCH_SIZE", "8"))  # Smaller batches process faster
+    WORKER_PARALLEL_BATCHES: int = int(os.environ.get("WORKER_PARALLEL_BATCHES", "3"))  # Process 3 batches in parallel
     MAX_ITEM_TOASTS: int = int(os.environ.get("MAX_ITEM_TOASTS", "5"))
-    WORKER_TIMEOUT: float = float(os.environ.get("WORKER_TIMEOUT", "120"))
+    WORKER_TIMEOUT: float = float(os.environ.get("WORKER_TIMEOUT", "90"))  # Reduced timeout
 
     # Feed Processing Settings
     MAX_FEED_WORKERS: int = int(os.environ.get("MAX_FEED_WORKERS", "5"))
@@ -100,6 +101,9 @@ class Config:
         if cls.WORKER_BATCH_SIZE < 1 or cls.WORKER_BATCH_SIZE > 50:
             errors.append("WORKER_BATCH_SIZE must be between 1 and 50")
 
+        if cls.WORKER_PARALLEL_BATCHES < 1 or cls.WORKER_PARALLEL_BATCHES > 10:
+            errors.append("WORKER_PARALLEL_BATCHES must be between 1 and 10")
+
         if cls.PORT < 1 or cls.PORT > 65535:
             errors.append("PORT must be between 1 and 65535")
 
@@ -137,6 +141,7 @@ class Config:
             "auto_refresh_interval": cls.AUTO_REFRESH_INTERVAL,
             "max_feed_workers": cls.MAX_FEED_WORKERS,
             "worker_batch_size": cls.WORKER_BATCH_SIZE,
+            "worker_parallel_batches": cls.WORKER_PARALLEL_BATCHES,
             "rate_limit_enabled": cls.RATE_LIMIT_ENABLED,
             "cf_worker_configured": bool(cls.CF_WORKER_URL and cls.CF_WORKER_TOKEN),
             "allowed_domains": cls().ALLOWED_DOMAINS or "all",
