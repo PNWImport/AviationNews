@@ -272,7 +272,7 @@ def auto_refresh_feeds_parallel():
         if total_new > 0:
             publish_sse_event("reload_page", json.dumps({"reason": "new_content"}))
 
-        publish_sse_event("toast", make_toast_html(f"Auto-refresh complete: {total_new} new items, {errors} errors", "good"))
+        publish_sse_event("toast", json.dumps({"message": f"Auto-refresh complete: {total_new} new items, {errors} errors", "tone": "good"}))
 
     except Exception as e:
         log.exception(f"Auto-refresh system error: {e}")
@@ -870,7 +870,7 @@ def api_ingest():
                 (result["url"], result["subject"], now_iso(), "ok", None, result.get("etag"), result.get("last_modified"))
             )
             feed_id = cur.lastrowid
-        publish_sse_event("toast", make_toast_html(f"Feed added: {result['url']}", "good"))
+        publish_sse_event("toast", json.dumps({"message": f"Feed added: {result['url']}", "tone": "good"}))
 
     count = ingest_news_items(cur, email_id, result["news_items"], result["url"])
 
@@ -910,11 +910,11 @@ def api_feeds_auto_refresh():
 
         if enabled:
             start_auto_refresh()
-            publish_sse_event("toast", make_toast_html("Auto-refresh enabled", "good"))
+            publish_sse_event("toast", json.dumps({"message": "Auto-refresh enabled", "tone": "good"}))
         else:
             if auto_refresh_timer:
                 auto_refresh_timer.cancel()
-            publish_sse_event("toast", make_toast_html("Auto-refresh disabled", "info"))
+            publish_sse_event("toast", json.dumps({"message": "Auto-refresh disabled", "tone": "info"}))
 
     return jsonify({"status": "ok", "auto_refresh_enabled": auto_refresh_enabled})
 
@@ -961,7 +961,7 @@ def api_feeds_add():
         fid = cur.lastrowid
 
     conn.commit()
-    publish_sse_event("toast", make_toast_html("Feed added", "good"))
+    publish_sse_event("toast", json.dumps({"message": "Feed added", "tone": "good"}))
     return jsonify({"status": "ok", "feed_id": fid, "url": res["url"], "title": res["subject"]})
 
 @app.route("/api/feeds/<int:feed_id>", methods=["DELETE"])
@@ -970,7 +970,7 @@ def api_delete_feed(feed_id: int):
     c = db.cursor()
     c.execute("DELETE FROM feeds WHERE id = ?", (feed_id,))
     db.commit()
-    publish_sse_event("toast", make_toast_html(f"Feed removed: #{feed_id}", "info"))
+    publish_sse_event("toast", json.dumps({"message": f"Feed removed: #{feed_id}", "tone": "info"}))
     return jsonify({"status": "ok"})
 
 @app.route("/api/feeds/refresh", methods=["GET", "POST"])
@@ -1002,7 +1002,7 @@ def api_refresh_feeds():
                     result = future.result()
                     results.append(result)
                     if result.get("new_items", 0) > 0:
-                        publish_sse_event("toast", make_toast_html(f"New items from {result.get('url', 'feed')}", "good"))
+                        publish_sse_event("toast", json.dumps({"message": f"New items from {result.get('url', 'feed')}", "tone": "good"}))
                         publish_sse_event("feed_refreshed", {
                             "type": "feed_refreshed",
                             "feed_id": result["feed_id"],
@@ -1017,7 +1017,7 @@ def api_refresh_feeds():
         errors = len([r for r in results if r.get("error")])
         if total_new > 0:
             publish_sse_event("reload_page", json.dumps({"reason": "new_content"}))
-        publish_sse_event("toast", make_toast_html(f"Refresh complete: {total_new} new items, {errors} errors", "good"))
+        publish_sse_event("toast", json.dumps({"message": f"Refresh complete: {total_new} new items, {errors} errors", "tone": "good"}))
         publish_sse_event("reload_page", json.dumps({"reason": "feed_refresh_complete"}))
 
     threading.Thread(target=refresh_feeds_parallel_thread, daemon=True).start()
@@ -1327,7 +1327,7 @@ def api_ai_summarize():
 
                 if toast_count < config.MAX_ITEM_TOASTS:
                     msg = f"AI summary ready for item #{nid}"
-                    publish_sse_event("toast", make_toast_html(msg, "info", onclick=f"focusItem({nid})"))
+                    publish_sse_event("toast", json.dumps({"message": msg, "tone": "info"}))
                     toast_count += 1
 
             except Exception as e:
@@ -1337,7 +1337,7 @@ def api_ai_summarize():
         conn.commit()
         conn.close()
 
-        publish_sse_event("toast", make_toast_html(f"Batch complete: {updated} items updated", "good"))
+        publish_sse_event("toast", json.dumps({"message": f"Batch complete: {updated} items updated", "tone": "good"}))
         publish_sse_event("summary_batch_complete", json.dumps({
             "type": "summary_batch_complete",
             "updated": updated,
@@ -1349,7 +1349,7 @@ def api_ai_summarize():
             publish_sse_event("reload_page", json.dumps({"reason": "ai_summary_updated"}))
 
         if worker_errors:
-            publish_sse_event("toast", make_toast_html(f"Worker issues: {worker_errors[0]}", "bad"))
+            publish_sse_event("toast", json.dumps({"message": f"Worker issues: {worker_errors[0]}", "tone": "bad"}))
 
     threading.Thread(target=process_summaries, daemon=True).start()
 
