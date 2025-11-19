@@ -344,9 +344,9 @@ def create_password_reset_token(db, email: str) -> tuple[bool, str]:
 
     # Insert new reset token
     cursor.execute("""
-        INSERT INTO password_reset_tokens (user_id, token, expires_at, used)
-        VALUES (?, ?, ?, 0)
-    """, (user_data['id'], token, expires_at))
+        INSERT INTO password_reset_tokens (user_id, token, expires_at, used, created_at)
+        VALUES (?, ?, ?, 0, ?)
+    """, (user_data['id'], token, expires_at, datetime.utcnow().isoformat()))
 
     db.commit()
 
