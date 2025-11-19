@@ -14,13 +14,13 @@
     <div class="max-w-4xl mx-auto py-8">
         <!-- Header -->
         <div class="bg-white rounded-2xl shadow-2xl overflow-hidden fade-in mb-6">
-            <div class="bg-gradient-to-r from-blue-600 to-orange-500 p-6">
+            <div class="bg-gradient-to-r from-blue-600 to-orange-500 p-4 sm:p-6">
                 <div class="flex items-center justify-between">
                     <div>
-                        <h1 class="text-3xl font-bold text-white mb-1">⚙️ Preferences</h1>
-                        <p class="text-blue-100">Manage your account settings</p>
+                        <h1 class="text-2xl sm:text-3xl font-bold text-white mb-1">⚙️ Preferences</h1>
+                        <p class="text-sm sm:text-base text-blue-100">Manage your account settings</p>
                     </div>
-                    <a href="/" class="text-white hover:text-blue-100 transition-colors">
+                    <a href="/" class="text-white hover:text-blue-100 transition-colors flex-shrink-0 ml-2">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
                         </svg>
@@ -42,8 +42,8 @@
             {% endwith %}
 
             <!-- Profile Section -->
-            <div class="p-6 border-b border-gray-200">
-                <h2 class="text-xl font-bold text-gray-800 mb-4">Profile Information</h2>
+            <div class="p-4 sm:p-6 border-b border-gray-200">
+                <h2 class="text-lg sm:text-xl font-bold text-gray-800 mb-4">Profile Information</h2>
                 <form method="POST" action="{{ url_for('auth.preferences') }}" class="space-y-4">
                     <input type="hidden" name="action" value="update_profile">
 
@@ -78,8 +78,8 @@
             </div>
 
             <!-- Security Section -->
-            <div class="p-6 border-b border-gray-200">
-                <h2 class="text-xl font-bold text-gray-800 mb-4">🔐 Security</h2>
+            <div class="p-4 sm:p-6 border-b border-gray-200">
+                <h2 class="text-lg sm:text-xl font-bold text-gray-800 mb-4">🔐 Security</h2>
                 <p class="text-gray-600 mb-4">Manage your account security and active sessions</p>
 
                 <a
@@ -91,8 +91,8 @@
             </div>
 
             <!-- Email Preferences Section -->
-            <div class="p-6">
-                <h2 class="text-xl font-bold text-gray-800 mb-4">📧 Email Preferences</h2>
+            <div class="p-4 sm:p-6">
+                <h2 class="text-lg sm:text-xl font-bold text-gray-800 mb-4">📧 Email Preferences</h2>
                 <p class="text-gray-600 mb-6">Choose what email notifications you'd like to receive</p>
 
                 <form method="POST" action="{{ url_for('auth.preferences') }}" class="space-y-4">

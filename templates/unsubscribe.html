@@ -14,16 +14,16 @@
     <div class="w-full max-w-md">
         <div class="bg-white rounded-2xl shadow-2xl overflow-hidden fade-in">
             <!-- Header -->
-            <div class="bg-gradient-to-r from-blue-600 to-orange-500 p-8 text-center">
-                <div class="text-5xl mb-3">{% if success %}✅{% else %}❌{% endif %}</div>
-                <h1 class="text-3xl font-bold text-white mb-2">
+            <div class="bg-gradient-to-r from-blue-600 to-orange-500 p-6 sm:p-8 text-center">
+                <div class="text-4xl sm:text-5xl mb-3">{% if success %}✅{% else %}❌{% endif %}</div>
+                <h1 class="text-2xl sm:text-3xl font-bold text-white mb-2">
                     {% if success %}Unsubscribed{% else %}Error{% endif %}
                 </h1>
-                <p class="text-blue-100">Aviation Intelligence Hub</p>
+                <p class="text-sm sm:text-base text-blue-100">Aviation Intelligence Hub</p>
             </div>
 
             <!-- Message -->
-            <div class="p-8">
+            <div class="p-6 sm:p-8">
                 {% if success %}
                     <div class="bg-green-50 border-l-4 border-green-500 p-4 mb-6 rounded">
                         <p class="text-green-800 font-semibold">{{ message }}</p>
