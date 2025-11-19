@@ -436,3 +436,156 @@ def reset_user_password(db, user_id: int, token: str, new_password: str) -> tupl
     db.commit()
 
     return True, "Password reset successfully"
+
+
+# =============== User Preferences Functions ===============
+
+def get_user_preferences(db, user_id: int) -> Optional[Dict[str, Any]]:
+    """
+    Get user email preferences
+    Returns: dict with preference settings or None if user not found
+    """
+    cursor = db.cursor()
+
+    cursor.execute("""
+        SELECT email_daily_digest, email_breaking_news, email, name
+        FROM users
+        WHERE id = ?
+    """, (user_id,))
+
+    row = cursor.fetchone()
+
+    if not row:
+        return None
+
+    return {
+        'email_daily_digest': bool(row['email_daily_digest']),
+        'email_breaking_news': bool(row['email_breaking_news']),
+        'email': row['email'],
+        'name': row['name']
+    }
+
+
+def update_user_preferences(db, user_id: int, preferences: Dict[str, Any]) -> tuple[bool, str]:
+    """
+    Update user email preferences
+    preferences: dict with keys: email_daily_digest, email_breaking_news (booleans)
+    Returns: (success, message)
+    """
+    cursor = db.cursor()
+
+    # Verify user exists
+    cursor.execute("SELECT id FROM users WHERE id = ?", (user_id,))
+    if not cursor.fetchone():
+        return False, "User not found"
+
+    # Build update query based on provided preferences
+    updates = []
+    values = []
+
+    if 'email_daily_digest' in preferences:
+        updates.append("email_daily_digest = ?")
+        values.append(1 if preferences['email_daily_digest'] else 0)
+
+    if 'email_breaking_news' in preferences:
+        updates.append("email_breaking_news = ?")
+        values.append(1 if preferences['email_breaking_news'] else 0)
+
+    if not updates:
+        return False, "No preferences provided"
+
+    # Add user_id to values for WHERE clause
+    values.append(user_id)
+
+    # Execute update
+    query = f"UPDATE users SET {', '.join(updates)} WHERE id = ?"
+    cursor.execute(query, tuple(values))
+
+    db.commit()
+
+    return True, "Preferences updated successfully"
+
+
+def unsubscribe_user_by_token(db, unsubscribe_token: str, email_type: str = 'all') -> tuple[bool, str, Optional[str]]:
+    """
+    Unsubscribe user using unsubscribe token
+    email_type: 'all', 'digest', or 'breaking_news'
+    Returns: (success, message, email)
+    """
+    cursor = db.cursor()
+
+    # Find user by unsubscribe token
+    cursor.execute("""
+        SELECT id, email, name, email_daily_digest, email_breaking_news
+        FROM users
+        WHERE unsubscribe_token = ?
+    """, (unsubscribe_token,))
+
+    row = cursor.fetchone()
+
+    if not row:
+        return False, "Invalid unsubscribe link", None
+
+    user_id = row['id']
+    user_email = row['email']
+
+    # Update preferences based on type
+    if email_type == 'all':
+        cursor.execute("""
+            UPDATE users
+            SET email_daily_digest = 0, email_breaking_news = 0
+            WHERE id = ?
+        """, (user_id,))
+        message = "You have been unsubscribed from all emails"
+    elif email_type == 'digest':
+        cursor.execute("""
+            UPDATE users
+            SET email_daily_digest = 0
+            WHERE id = ?
+        """, (user_id,))
+        message = "You have been unsubscribed from daily digests"
+    elif email_type == 'breaking_news':
+        cursor.execute("""
+            UPDATE users
+            SET email_breaking_news = 0
+            WHERE id = ?
+        """, (user_id,))
+        message = "You have been unsubscribed from breaking news alerts"
+    else:
+        return False, "Invalid email type", None
+
+    db.commit()
+
+    return True, message, user_email
+
+
+def update_user_profile(db, user_id: int, name: Optional[str] = None) -> tuple[bool, str]:
+    """
+    Update user profile information
+    Returns: (success, message)
+    """
+    cursor = db.cursor()
+
+    # Verify user exists
+    cursor.execute("SELECT id FROM users WHERE id = ?", (user_id,))
+    if not cursor.fetchone():
+        return False, "User not found"
+
+    updates = []
+    values = []
+
+    if name is not None and name.strip():
+        updates.append("name = ?")
+        values.append(name.strip())
+
+    if not updates:
+        return False, "No changes provided"
+
+    values.append(user_id)
+
+    query = f"UPDATE users SET {', '.join(updates)} WHERE id = ?"
+    cursor.execute(query, tuple(values))
+
+    db.commit()
+
+    return True, "Profile updated successfully"

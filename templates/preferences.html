@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Preferences - Aviation Intelligence Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-900 via-blue-700 to-orange-500 min-h-screen p-4">
+    <div class="max-w-4xl mx-auto py-8">
+        <!-- Header -->
+        <div class="bg-white rounded-2xl shadow-2xl overflow-hidden fade-in mb-6">
+            <div class="bg-gradient-to-r from-blue-600 to-orange-500 p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-3xl font-bold text-white mb-1">⚙️ Preferences</h1>
+                        <p class="text-blue-100">Manage your account settings</p>
+                    </div>
+                    <a href="/" class="text-white hover:text-blue-100 transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                        </svg>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="p-4">
+                        {% for category, message in messages %}
+                            <div class="alert mb-3 p-4 rounded-lg {% if category == 'success' %}bg-green-100 text-green-800 border border-green-200{% elif category == 'error' %}bg-red-100 text-red-800 border border-red-200{% else %}bg-blue-100 text-blue-800 border border-blue-200{% endif %} fade-in">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            <!-- Profile Section -->
+            <div class="p-6 border-b border-gray-200">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">Profile Information</h2>
+                <form method="POST" action="{{ url_for('auth.preferences') }}" class="space-y-4">
+                    <input type="hidden" name="action" value="update_profile">
+
+                    <div>
+                        <label for="name" class="block text-sm font-semibold text-gray-700 mb-2">Name</label>
+                        <input
+                            type="text"
+                            id="name"
+                            name="name"
+                            value="{{ preferences.name }}"
+                            required
+                            maxlength="100"
+                            class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+                        >
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Email Address</label>
+                        <div class="px-4 py-3 bg-gray-100 rounded-lg border border-gray-300 text-gray-600">
+                            {{ preferences.email }}
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">Email address cannot be changed</p>
+                    </div>
+
+                    <button
+                        type="submit"
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg"
+                    >
+                        Save Profile
+                    </button>
+                </form>
+            </div>
+
+            <!-- Email Preferences Section -->
+            <div class="p-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">📧 Email Preferences</h2>
+                <p class="text-gray-600 mb-6">Choose what email notifications you'd like to receive</p>
+
+                <form method="POST" action="{{ url_for('auth.preferences') }}" class="space-y-4">
+                    <input type="hidden" name="action" value="update_email_preferences">
+
+                    <!-- Daily Digest -->
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <div class="flex items-start">
+                            <input
+                                type="checkbox"
+                                id="email_daily_digest"
+                                name="email_daily_digest"
+                                {% if preferences.email_daily_digest %}checked{% endif %}
+                                class="mt-1 w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            >
+                            <div class="ml-4">
+                                <label for="email_daily_digest" class="block font-semibold text-gray-800 cursor-pointer">
+                                    Daily Digest
+                                </label>
+                                <p class="text-sm text-gray-600 mt-1">
+                                    Receive a daily summary of aviation news at 8:00 AM UTC. Includes top stories and sentiment analysis.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Breaking News Alerts -->
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <div class="flex items-start">
+                            <input
+                                type="checkbox"
+                                id="email_breaking_news"
+                                name="email_breaking_news"
+                                {% if preferences.email_breaking_news %}checked{% endif %}
+                                class="mt-1 w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            >
+                            <div class="ml-4">
+                                <label for="email_breaking_news" class="block font-semibold text-gray-800 cursor-pointer">
+                                    Breaking News Alerts
+                                </label>
+                                <p class="text-sm text-gray-600 mt-1">
+                                    Get real-time alerts for critical aviation news with high-negative sentiment (safety, regulatory, or operational issues).
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button
+                        type="submit"
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg"
+                    >
+                        Save Email Preferences
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Navigation Back -->
+        <div class="text-center">
+            <a href="/" class="text-white hover:text-blue-200 transition-colors font-semibold">
+                ← Back to Dashboard
+            </a>
+        </div>
+    </div>
+</body>
+</html>

@@ -326,11 +326,12 @@ def send_daily_digest():
         db = get_thread_db()
         cursor = db.cursor()
 
-        # Get all verified users who haven't unsubscribed
+        # Get all verified users who have daily digest enabled
         cursor.execute("""
             SELECT id, email, name, unsubscribe_token
             FROM users
             WHERE is_verified = 1
+            AND email_daily_digest = 1
         """)
         users = cursor.fetchall()
 
@@ -430,7 +431,7 @@ def check_and_send_breaking_news(article_data: dict):
 
         log.info(f"Breaking news detected: {article_data.get('title')} (sentiment: {sentiment:.2f})")
 
-        # Get all verified users
+        # Get all verified users who have breaking news alerts enabled
         db = get_thread_db()
         cursor = db.cursor()
 
@@ -438,6 +439,7 @@ def check_and_send_breaking_news(article_data: dict):
             SELECT id, email, name, unsubscribe_token
             FROM users
             WHERE is_verified = 1
+            AND email_breaking_news = 1
         """)
         users = cursor.fetchall()
 

@@ -8,7 +8,8 @@ from flask_login import login_user, logout_user, login_required, current_user
 from models import (
     get_user_by_email, create_user, verify_user_email,
     update_last_login, get_user_by_id,
-    create_password_reset_token, verify_password_reset_token, reset_user_password
+    create_password_reset_token, verify_password_reset_token, reset_user_password,
+    get_user_preferences, update_user_preferences, unsubscribe_user_by_token, update_user_profile
 )
 from email_service import email_service
 from sanitizer import sanitizer
@@ -491,3 +492,82 @@ def reset_password(token):
         else:
             flash(result_message, 'error')
             return render_template('reset_password.html', token=token)
+
+
+@auth_bp.route('/preferences', methods=['GET', 'POST'])
+@login_required
+def preferences():
+    """User preferences page - email settings and profile"""
+    from app import get_db
+    db = get_db()
+
+    if request.method == 'POST':
+        # Handle preference updates
+        action = request.form.get('action')
+
+        if action == 'update_email_preferences':
+            # Get checkbox values (unchecked = not in form data)
+            email_daily_digest = request.form.get('email_daily_digest') == 'on'
+            email_breaking_news = request.form.get('email_breaking_news') == 'on'
+
+            preferences = {
+                'email_daily_digest': email_daily_digest,
+                'email_breaking_news': email_breaking_news
+            }
+
+            success, message = update_user_preferences(db, current_user.id, preferences)
+
+            if success:
+                flash(message, 'success')
+                log.info(f"Preferences updated for user: {current_user.email}")
+            else:
+                flash(message, 'error')
+
+            return redirect(url_for('auth.preferences'))
+
+        elif action == 'update_profile':
+            # Update profile information
+            name = request.form.get('name', '').strip()
+
+            if not name:
+                flash('Name is required', 'error')
+                return redirect(url_for('auth.preferences'))
+
+            success, message = update_user_profile(db, current_user.id, name=name)
+
+            if success:
+                flash(message, 'success')
+                log.info(f"Profile updated for user: {current_user.email}")
+            else:
+                flash(message, 'error')
+
+            return redirect(url_for('auth.preferences'))
+
+    # GET request - show preferences
+    prefs = get_user_preferences(db, current_user.id)
+
+    if not prefs:
+        flash('Error loading preferences', 'error')
+        return redirect(url_for('index'))
+
+    return render_template('preferences.html', preferences=prefs)
+
+
+@auth_bp.route('/unsubscribe/<token>')
+def unsubscribe(token):
+    """Unsubscribe from emails using token"""
+    from app import get_db
+    db = get_db()
+
+    # Get email type from query param (default: all)
+    email_type = request.args.get('type', 'all')
+
+    success, message, user_email = unsubscribe_user_by_token(db, token, email_type)
+
+    if success:
+        flash(message, 'success')
+        log.info(f"User unsubscribed: {user_email} - type: {email_type}")
+    else:
+        flash(message, 'error')
+
+    return render_template('unsubscribe.html', success=success, message=message, email_type=email_type)
