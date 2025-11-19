@@ -46,9 +46,23 @@ class User(UserMixin):
         self.subscription_end = user_data.get('subscription_end')
         self.revenuecat_user_id = user_data.get('revenuecat_user_id')
 
+        # Gamification (cached for navigation)
+        self._level = user_data.get('level', 1)
+        self._points = user_data.get('points', 0)
+
     def get_id(self):
         """Required by Flask-Login"""
         return str(self.id)
+
+    @property
+    def level(self):
+        """User's gamification level (cached from user load)"""
+        return self._level
+
+    @property
+    def points(self):
+        """User's gamification points (cached from user load)"""
+        return self._points
 
     @property
     def is_active(self):
@@ -293,9 +307,14 @@ def init_user_tables(db):
 
 
 def get_user_by_id(db, user_id: int) -> Optional[User]:
-    """Load user by ID"""
+    """Load user by ID with gamification data"""
     cursor = db.cursor()
-    cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+    cursor.execute("""
+        SELECT u.*, ug.level, ug.points
+        FROM users u
+        LEFT JOIN user_gamification ug ON u.id = ug.user_id
+        WHERE u.id = ?
+    """, (user_id,))
     row = cursor.fetchone()
 
     if row:

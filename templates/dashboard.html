@@ -1,93 +1,200 @@
-{% extends "base.html" %}
-{% block content %}
-<div class="space-y-8">
-    <div class="bg-white rounded-lg shadow-md p-6">
-        <h1 class="text-3xl font-bold text-gray-900 mb-2">Aviation News Dashboard</h1>
-        <p class="text-gray-600">Real-time analytics and insights from your aviation news collection</p>
-    </div>
-    
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div class="bg-white rounded-lg shadow-md p-6 text-center">
-            <div class="text-3xl font-bold text-blue-600 mb-2">{{ analytics.total_articles }}</div>
-            <div class="text-gray-600">Total Articles</div>
-        </div>
-        <div class="bg-white rounded-lg shadow-md p-6 text-center">
-            <div class="text-3xl font-bold {% if analytics.avg_sentiment > 0 %}text-green-600{% elif analytics.avg_sentiment < 0 %}text-red-600{% else %}text-gray-600{% endif %} mb-2">
-                {{ "%.3f"|format(analytics.avg_sentiment) }}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Aviation Intelligence Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .progress-bar {
+            transition: width 0.5s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-900 via-blue-700 to-orange-500 min-h-screen p-4">
+    <div class="max-w-6xl mx-auto py-8">
+        <!-- Header -->
+        <div class="bg-white rounded-2xl shadow-2xl overflow-hidden fade-in mb-6">
+            <div class="bg-gradient-to-r from-blue-600 to-orange-500 p-4 sm:p-6">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                        <h1 class="text-2xl sm:text-3xl font-bold text-white mb-1">🎮 Gamification Dashboard</h1>
+                        <p class="text-sm sm:text-base text-blue-100">Track your progress and achievements</p>
+                    </div>
+                    <a href="/" class="text-white hover:text-blue-100 transition-colors flex-shrink-0 self-end sm:self-auto">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                        </svg>
+                    </a>
+                </div>
             </div>
-            <div class="text-gray-600">Avg Sentiment</div>
-        </div>
-        <div class="bg-white rounded-lg shadow-md p-6 text-center">
-            <div class="text-3xl font-bold text-purple-600 mb-2">{{ analytics.top_categories|length }}</div>
-            <div class="text-gray-600">Categories</div>
-        </div>
-        <div class="bg-white rounded-lg shadow-md p-6 text-center">
-            <div class="text-3xl font-bold text-orange-600 mb-2">{{ analytics.top_sources|length }}</div>
-            <div class="text-gray-600">Sources</div>
-        </div>
-    </div>
-    
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <h2 class="text-xl font-semibold mb-4">Sentiment Distribution</h2>
-            <canvas id="sentimentChart" width="400" height="300"></canvas>
-        </div>
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <h2 class="text-xl font-semibold mb-4">Top Categories</h2>
-            <div class="space-y-3">
-                {% for category, count in analytics.top_categories %}
-                <div class="flex justify-between items-center">
-                    <span class="font-medium">{{ category }}</span>
-                    <div class="flex items-center space-x-2">
-                        <div class="bg-blue-200 rounded-full h-2 w-20">
-                            <div class="bg-blue-600 h-2 rounded-full" style="width: {{ (count / analytics.top_categories[0][1] * 100)|round }}%"></div>
-                        </div>
-                        <span class="text-sm text-gray-600">{{ count }}</span>
+
+            <!-- Stats Overview -->
+            <div class="p-4 sm:p-6">
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <!-- Points -->
+                    <div class="bg-gradient-to-br from-yellow-100 to-yellow-200 p-4 rounded-xl shadow">
+                        <div class="text-3xl sm:text-4xl mb-2">💎</div>
+                        <div class="text-2xl sm:text-3xl font-bold text-yellow-900">{{ stats.points }}</div>
+                        <div class="text-xs sm:text-sm text-yellow-700">Points</div>
+                    </div>
+
+                    <!-- Level -->
+                    <div class="bg-gradient-to-br from-purple-100 to-purple-200 p-4 rounded-xl shadow">
+                        <div class="text-3xl sm:text-4xl mb-2">⭐</div>
+                        <div class="text-2xl sm:text-3xl font-bold text-purple-900">{{ stats.level }}</div>
+                        <div class="text-xs sm:text-sm text-purple-700">Level</div>
+                    </div>
+
+                    <!-- Streak -->
+                    <div class="bg-gradient-to-br from-orange-100 to-orange-200 p-4 rounded-xl shadow">
+                        <div class="text-3xl sm:text-4xl mb-2">🔥</div>
+                        <div class="text-2xl sm:text-3xl font-bold text-orange-900">{{ stats.current_streak }}</div>
+                        <div class="text-xs sm:text-sm text-orange-700">Day Streak</div>
+                    </div>
+
+                    <!-- Badges -->
+                    <div class="bg-gradient-to-br from-green-100 to-green-200 p-4 rounded-xl shadow">
+                        <div class="text-3xl sm:text-4xl mb-2">🏆</div>
+                        <div class="text-2xl sm:text-3xl font-bold text-green-900">{{ badges|length }}</div>
+                        <div class="text-xs sm:text-sm text-green-700">Badges</div>
                     </div>
                 </div>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
-    
-    <div class="bg-white rounded-lg shadow-md p-6">
-        <div class="flex justify-between items-center mb-4">
-            <h2 class="text-xl font-semibold">Recent Articles</h2>
-            <a href="{{ url_for('catalog') }}" class="text-blue-600 hover:text-blue-800 transition-colors">View All →</a>
-        </div>
-        <div class="space-y-4">
-            {% for article in recent_articles %}
-            <div class="border-l-4 {% if article.sentiment_label == 'Positive' %}border-green-500{% elif article.sentiment_label == 'Negative' %}border-red-500{% else %}border-gray-500{% endif %} pl-4 py-2">
-                <h3 class="font-semibold text-gray-900">{{ article.title }}</h3>
-                <div class="flex items-center space-x-4 text-sm text-gray-600 mt-1">
-                    <span>{{ article.source }}</span>
-                    <span>{{ (article.date_published or '')[:10] if article.date_published else 'Unknown' }}</span>
-                    <span class="sentiment-{{ article.sentiment_label|lower }} px-2 py-1 rounded-full border text-xs">{{ article.sentiment_label }}</span>
-                    <span>{{ article.category }}</span>
-                </div>
-                <p class="text-gray-700 mt-2">{{ article.content[:200] }}...</p>
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-</div>
 
-<script>
-const sentimentCtx = document.getElementById('sentimentChart').getContext('2d');
-const labels = [{% for item in analytics.sentiment_distribution %}'{{ item[0] }}'{% if not loop.last %},{% endif %}{% endfor %}];
-const dataVals = [{% for item in analytics.sentiment_distribution %}{{ item[1] }}{% if not loop.last %},{% endif %}{% endfor %}];
-new Chart(sentimentCtx, {
-    type: 'doughnut',
-    data: {
-        labels: labels,
-        datasets: [{
-            data: dataVals,
-            backgroundColor: ['#10B981', '#EF4444', '#6B7280'],
-            borderWidth: 2,
-            borderColor: '#fff'
-        }]
-    },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
-});
-</script>
-{% endblock %}
+                <!-- Level Progress -->
+                <div class="bg-gray-50 p-4 sm:p-6 rounded-xl mb-6">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 gap-2">
+                        <h2 class="text-lg sm:text-xl font-bold text-gray-800">Level {{ stats.level }} Progress</h2>
+                        <span class="text-sm text-gray-600">{{ points_needed }} points to Level {{ stats.level + 1 }}</span>
+                    </div>
+                    <div class="w-full bg-gray-300 rounded-full h-6 overflow-hidden">
+                        <div class="progress-bar bg-gradient-to-r from-blue-500 to-purple-600 h-6 rounded-full flex items-center justify-end px-2"
+                             style="width: {{ progress_percent }}%">
+                            <span class="text-xs font-bold text-white">{{ progress_percent }}%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Subscription Status -->
+                {% if subscription %}
+                <div class="{% if subscription.is_pro %}bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-300{% else %}bg-blue-50 border border-blue-200{% endif %} p-4 sm:p-6 rounded-xl mb-6">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div>
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="text-2xl">{% if subscription.is_pro %}⚡{% else %}🆓{% endif %}</span>
+                                <h3 class="text-lg sm:text-xl font-bold {% if subscription.is_pro %}text-purple-900{% else %}text-blue-900{% endif %}">
+                                    {% if subscription.is_pro %}Pro Member{% else %}Free Plan{% endif %}
+                                </h3>
+                            </div>
+                            {% if subscription.is_pro %}
+                                <p class="text-sm text-purple-700">
+                                    {% if subscription.subscription_status == 'trial' %}
+                                        Trial expires in {{ subscription.days_remaining }} days
+                                    {% else %}
+                                        Renews in {{ subscription.days_remaining }} days
+                                    {% endif %}
+                                </p>
+                            {% else %}
+                                <p class="text-sm text-blue-700">Upgrade to unlock unlimited features</p>
+                            {% endif %}
+                        </div>
+                        {% if not subscription.is_pro %}
+                        <a href="/upgrade"
+                           class="w-full sm:w-auto bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transition-all text-center">
+                            Upgrade to Pro
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Recent Badges -->
+                <div class="mb-6">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
+                        <h2 class="text-lg sm:text-xl font-bold text-gray-800">🏆 Recent Badges</h2>
+                        <a href="/badges" class="text-sm text-blue-600 hover:text-blue-800 font-semibold hover:underline self-end sm:self-auto">
+                            View All →
+                        </a>
+                    </div>
+                    {% if badges %}
+                    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                        {% for badge in badges[:8] %}
+                        <div class="bg-white border-2 border-gray-200 p-3 sm:p-4 rounded-xl hover:shadow-lg transition-shadow">
+                            <div class="text-3xl sm:text-4xl mb-2 text-center">{{ badge.icon }}</div>
+                            <div class="text-center">
+                                <div class="font-bold text-sm sm:text-base text-gray-800">{{ badge.name }}</div>
+                                <div class="text-xs text-gray-600 mt-1">{{ badge.description }}</div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="bg-gray-50 border border-gray-200 p-6 sm:p-8 rounded-xl text-center">
+                        <div class="text-4xl sm:text-5xl mb-3">🎯</div>
+                        <p class="text-gray-600">No badges earned yet. Keep exploring to unlock achievements!</p>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Recent Activity -->
+                <div>
+                    <h2 class="text-lg sm:text-xl font-bold text-gray-800 mb-4">📊 Recent Activity</h2>
+                    {% if recent_activity %}
+                    <div class="space-y-2">
+                        {% for activity in recent_activity %}
+                        <div class="bg-white border border-gray-200 p-3 sm:p-4 rounded-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm sm:text-base text-gray-800 break-words">{{ activity.description }}</p>
+                                <p class="text-xs text-gray-500 mt-1">{{ activity.created_at[:19] }}</p>
+                            </div>
+                            <div class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-semibold self-end sm:self-auto flex-shrink-0">
+                                +{{ activity.points_awarded }} pts
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="bg-gray-50 border border-gray-200 p-6 sm:p-8 rounded-xl text-center">
+                        <p class="text-gray-600">No recent activity</p>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Additional Stats -->
+                <div class="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <div class="text-sm text-gray-600 mb-1">Total Logins</div>
+                        <div class="text-xl sm:text-2xl font-bold text-gray-900">{{ stats.total_logins }}</div>
+                    </div>
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <div class="text-sm text-gray-600 mb-1">Best Streak</div>
+                        <div class="text-xl sm:text-2xl font-bold text-gray-900">{{ stats.best_streak }} days</div>
+                    </div>
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <div class="text-sm text-gray-600 mb-1">Articles Read</div>
+                        <div class="text-xl sm:text-2xl font-bold text-gray-900">{{ stats.articles_read }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer Links -->
+            <div class="bg-gray-50 p-4 border-t border-gray-200 flex flex-wrap gap-4 justify-center text-sm">
+                <a href="/leaderboard" class="text-blue-600 hover:text-blue-800 font-semibold hover:underline">
+                    🏅 Leaderboard
+                </a>
+                <a href="/badges" class="text-blue-600 hover:text-blue-800 font-semibold hover:underline">
+                    🏆 All Badges
+                </a>
+                <a href="/preferences" class="text-blue-600 hover:text-blue-800 font-semibold hover:underline">
+                    ⚙️ Preferences
+                </a>
+                <a href="/" class="text-blue-600 hover:text-blue-800 font-semibold hover:underline">
+                    🏠 Home
+                </a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

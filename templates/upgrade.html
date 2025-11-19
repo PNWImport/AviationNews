@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upgrade to Pro - Aviation Intelligence Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .check-icon::before { content: "✓"; }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-900 via-blue-700 to-orange-500 min-h-screen p-4">
+    <div class="max-w-5xl mx-auto py-8">
+        <!-- Header -->
+        <div class="text-center mb-8 fade-in">
+            <h1 class="text-3xl sm:text-5xl font-bold text-white mb-3">⚡ Upgrade to Pro</h1>
+            <p class="text-lg sm:text-xl text-blue-100">Unlock unlimited features and supercharge your aviation intelligence</p>
+        </div>
+
+        {% if subscription and subscription.is_pro %}
+        <!-- Already Pro -->
+        <div class="bg-white rounded-2xl shadow-2xl overflow-hidden fade-in mb-6 p-6 sm:p-8 text-center">
+            <div class="text-5xl sm:text-6xl mb-4">🎉</div>
+            <h2 class="text-2xl sm:text-3xl font-bold text-purple-900 mb-3">You're Already a Pro Member!</h2>
+            <p class="text-gray-700 mb-6">
+                Your subscription {% if subscription.subscription_status == 'trial' %}trial expires{% else %}renews{% endif %}
+                in {{ subscription.days_remaining }} days
+            </p>
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                <a href="/dashboard" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg transition-all">
+                    View Dashboard
+                </a>
+                <a href="/" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-8 rounded-lg transition-all">
+                    Go Home
+                </a>
+            </div>
+        </div>
+        {% else %}
+        <!-- Pricing Card -->
+        <div class="bg-white rounded-2xl shadow-2xl overflow-hidden fade-in mb-6">
+            <div class="bg-gradient-to-r from-purple-600 to-pink-600 p-6 sm:p-8 text-center">
+                <div class="text-5xl sm:text-6xl mb-4">⚡</div>
+                <h2 class="text-3xl sm:text-4xl font-bold text-white mb-3">Pro Plan</h2>
+                <div class="text-5xl sm:text-6xl font-bold text-white mb-2">$4.99<span class="text-2xl font-normal">/month</span></div>
+                <p class="text-purple-100 text-sm sm:text-base">Cancel anytime. No hidden fees.</p>
+            </div>
+
+            <!-- Feature Comparison -->
+            <div class="p-6 sm:p-8">
+                <h3 class="text-2xl font-bold text-gray-900 mb-6 text-center">Everything in Free, plus:</h3>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                    <!-- Pro Features -->
+                    <div class="bg-gradient-to-br from-purple-50 to-pink-50 p-4 sm:p-6 rounded-xl border-2 border-purple-200">
+                        <h4 class="font-bold text-purple-900 mb-4 text-lg">⚡ Pro Features</h4>
+                        <ul class="space-y-3">
+                            <li class="flex items-start gap-2">
+                                <span class="text-green-600 font-bold check-icon flex-shrink-0 mt-1"></span>
+                                <span class="text-gray-700"><strong>Unlimited AI Summaries</strong> - No daily limits</span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <span class="text-green-600 font-bold check-icon flex-shrink-0 mt-1"></span>
+                                <span class="text-gray-700"><strong>Daily Email Digest</strong> - Get top stories every morning</span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <span class="text-green-600 font-bold check-icon flex-shrink-0 mt-1"></span>
+                                <span class="text-gray-700"><strong>Breaking News Alerts</strong> - Instant notifications for critical news</span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <span class="text-green-600 font-bold check-icon flex-shrink-0 mt-1"></span>
+                                <span class="text-gray-700"><strong>Unlimited Saved Articles</strong> - Build your knowledge base</span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <span class="text-green-600 font-bold check-icon flex-shrink-0 mt-1"></span>
+                                <span class="text-gray-700"><strong>Advanced Analytics</strong> - Detailed sentiment trends</span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <span class="text-green-600 font-bold check-icon flex-shrink-0 mt-1"></span>
+                                <span class="text-gray-700"><strong>Priority Support</strong> - Get help faster</span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <span class="text-green-600 font-bold check-icon flex-shrink-0 mt-1"></span>
+                                <span class="text-gray-700"><strong>Exclusive Pro Badges</strong> - Show off your status</span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <span class="text-green-600 font-bold check-icon flex-shrink-0 mt-1"></span>
+                                <span class="text-gray-700"><strong>+500 Bonus Points</strong> - Level up faster</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Free Features -->
+                    <div class="bg-gray-50 p-4 sm:p-6 rounded-xl border border-gray-200">
+                        <h4 class="font-bold text-gray-700 mb-4 text-lg">🆓 Free Plan</h4>
+                        <ul class="space-y-3">
+                            <li class="flex items-start gap-2">
+                                <span class="text-blue-600 font-bold check-icon flex-shrink-0 mt-1"></span>
+                                <span class="text-gray-600"><strong>10 AI Summaries/day</strong> - Limited daily quota</span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <span class="text-blue-600 font-bold check-icon flex-shrink-0 mt-1"></span>
+                                <span class="text-gray-600"><strong>Weekly Email Digest</strong> - Once per week</span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <span class="text-red-600 font-bold">✗</span>
+                                <span class="text-gray-400 line-through">Breaking News Alerts</span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <span class="text-blue-600 font-bold check-icon flex-shrink-0 mt-1"></span>
+                                <span class="text-gray-600"><strong>5 Saved Articles</strong> - Limited storage</span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <span class="text-blue-600 font-bold check-icon flex-shrink-0 mt-1"></span>
+                                <span class="text-gray-600"><strong>Basic Analytics</strong> - Overview only</span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <span class="text-blue-600 font-bold check-icon flex-shrink-0 mt-1"></span>
+                                <span class="text-gray-600"><strong>Standard Support</strong> - Email support</span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <span class="text-blue-600 font-bold check-icon flex-shrink-0 mt-1"></span>
+                                <span class="text-gray-600"><strong>Free Badges</strong> - 10 achievement badges</span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <span class="text-blue-600 font-bold check-icon flex-shrink-0 mt-1"></span>
+                                <span class="text-gray-600"><strong>Standard Points</strong> - Regular earning rate</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- CTA Button -->
+                <div class="text-center">
+                    <div class="bg-yellow-50 border-2 border-yellow-300 rounded-xl p-4 sm:p-6 mb-6">
+                        <p class="text-sm sm:text-base text-yellow-800 mb-2">
+                            <strong>🎁 Special Offer:</strong> Get 7 days free trial when you subscribe today!
+                        </p>
+                    </div>
+
+                    <div id="revenuecat-paywall" class="mb-6">
+                        <!-- RevenueCat paywall will be injected here -->
+                        <div class="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-4 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all cursor-pointer inline-block text-lg">
+                            Subscribe Now - $4.99/month
+                        </div>
+                        <p class="text-xs text-gray-500 mt-3">Powered by RevenueCat. Secure payment processing.</p>
+                    </div>
+
+                    <p class="text-sm text-gray-600">
+                        No commitment. Cancel anytime from your account settings.
+                    </p>
+                </div>
+
+                <!-- Testimonials -->
+                <div class="mt-12 border-t border-gray-200 pt-8">
+                    <h3 class="text-xl font-bold text-gray-900 mb-6 text-center">What Pro Members Say</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <div class="flex items-center mb-2">
+                                <div class="text-yellow-500">⭐⭐⭐⭐⭐</div>
+                            </div>
+                            <p class="text-gray-700 text-sm mb-2">"The breaking news alerts have saved me hours. I'm always first to know about critical industry changes!"</p>
+                            <p class="text-gray-500 text-xs">- Aviation Industry Professional</p>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <div class="flex items-center mb-2">
+                                <div class="text-yellow-500">⭐⭐⭐⭐⭐</div>
+                            </div>
+                            <p class="text-gray-700 text-sm mb-2">"Unlimited AI summaries mean I can process 10x more news in the same time. Absolutely worth it."</p>
+                            <p class="text-gray-500 text-xs">- Airline Executive</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FAQ -->
+                <div class="mt-12 border-t border-gray-200 pt-8">
+                    <h3 class="text-xl font-bold text-gray-900 mb-6 text-center">Frequently Asked Questions</h3>
+                    <div class="space-y-4">
+                        <details class="bg-gray-50 p-4 rounded-lg cursor-pointer">
+                            <summary class="font-semibold text-gray-900">Can I cancel anytime?</summary>
+                            <p class="text-gray-700 mt-2 text-sm">Yes! You can cancel your subscription at any time from your account preferences. No questions asked.</p>
+                        </details>
+                        <details class="bg-gray-50 p-4 rounded-lg cursor-pointer">
+                            <summary class="font-semibold text-gray-900">What payment methods do you accept?</summary>
+                            <p class="text-gray-700 mt-2 text-sm">We accept all major credit cards, Apple Pay, and Google Pay through our secure payment processor RevenueCat.</p>
+                        </details>
+                        <details class="bg-gray-50 p-4 rounded-lg cursor-pointer">
+                            <summary class="font-semibold text-gray-900">Do you offer refunds?</summary>
+                            <p class="text-gray-700 mt-2 text-sm">Yes! If you're not satisfied within the first 7 days, contact support for a full refund.</p>
+                        </details>
+                        <details class="bg-gray-50 p-4 rounded-lg cursor-pointer">
+                            <summary class="font-semibold text-gray-900">Will my gamification progress carry over?</summary>
+                            <p class="text-gray-700 mt-2 text-sm">Absolutely! All your points, badges, and streaks remain intact when you upgrade. Plus, you'll get 500 bonus points immediately!</p>
+                        </details>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer Links -->
+            <div class="bg-gray-50 p-4 border-t border-gray-200 flex flex-wrap gap-4 justify-center text-sm">
+                <a href="/dashboard" class="text-blue-600 hover:text-blue-800 font-semibold hover:underline">
+                    🎮 Dashboard
+                </a>
+                <a href="/leaderboard" class="text-blue-600 hover:text-blue-800 font-semibold hover:underline">
+                    🏅 Leaderboard
+                </a>
+                <a href="/" class="text-blue-600 hover:text-blue-800 font-semibold hover:underline">
+                    🏠 Home
+                </a>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Security Notice -->
+        <div class="text-center text-white text-sm bg-black bg-opacity-20 rounded-lg p-4 backdrop-blur-sm">
+            <p>🔒 Secure checkout powered by RevenueCat. Your payment information is never stored on our servers.</p>
+        </div>
+    </div>
+
+    <!-- RevenueCat SDK (placeholder for actual implementation) -->
+    <script>
+        // TODO: Integrate actual RevenueCat SDK
+        // For now, this is a placeholder for the paywall
+        document.addEventListener('DOMContentLoaded', function() {
+            const paywall = document.getElementById('revenuecat-paywall');
+            if (paywall) {
+                paywall.addEventListener('click', function() {
+                    // In production, this would trigger RevenueCat paywall
+                    alert('RevenueCat payment integration coming soon!\n\nThis would normally:\n1. Open RevenueCat paywall\n2. Process payment\n3. Webhook updates subscription\n4. User gets Pro benefits');
+                });
+            }
+        });
+    </script>
+</body>
+</html>

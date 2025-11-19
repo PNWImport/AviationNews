@@ -1079,6 +1079,117 @@ def _build_summary_html(nid: int, ai: Dict[str, Any]) -> str:
 def index():
     return render_template("index.html")
 
+# ================= Gamification Routes ====================
+@app.route("/dashboard")
+@login_required
+def dashboard():
+    """Gamification dashboard - user stats, badges, progress"""
+    from gamification import (
+        get_user_gamification,
+        get_user_badges,
+        get_subscription_info,
+        LEVEL_THRESHOLDS
+    )
+
+    db = get_db()
+    stats = get_user_gamification(db, current_user.id)
+    badges = get_user_badges(db, current_user.id)
+    subscription = get_subscription_info(db, current_user.id)
+
+    # Calculate progress to next level
+    current_level = stats['level']
+    current_points = stats['points']
+
+    if current_level < len(LEVEL_THRESHOLDS):
+        next_level_points = LEVEL_THRESHOLDS[current_level]
+        current_level_points = LEVEL_THRESHOLDS[current_level - 1] if current_level > 1 else 0
+        points_needed = next_level_points - current_points
+        progress_percent = int(((current_points - current_level_points) / (next_level_points - current_level_points)) * 100)
+    else:
+        next_level_points = current_points
+        points_needed = 0
+        progress_percent = 100
+
+    # Get recent activity
+    cursor = db.cursor()
+    cursor.execute("""
+        SELECT activity_type, points_awarded, description, created_at
+        FROM gamification_activities
+        WHERE user_id = ?
+        ORDER BY created_at DESC
+        LIMIT 10
+    """, (current_user.id,))
+    recent_activity = [dict(row) for row in cursor.fetchall()]
+
+    return render_template("dashboard.html",
+                         stats=stats,
+                         badges=badges,
+                         subscription=subscription,
+                         next_level_points=next_level_points,
+                         points_needed=points_needed,
+                         progress_percent=progress_percent,
+                         recent_activity=recent_activity)
+
+@app.route("/upgrade")
+@login_required
+def upgrade():
+    """Pro upgrade/pricing page"""
+    from gamification import get_subscription_info
+
+    db = get_db()
+    subscription = get_subscription_info(db, current_user.id)
+
+    return render_template("upgrade.html", subscription=subscription)
+
+@app.route("/leaderboard")
+def leaderboard():
+    """Public leaderboard - top users by points"""
+    from gamification import get_leaderboard
+
+    db = get_db()
+    top_users = get_leaderboard(db, limit=20)
+
+    # Get current user's rank if logged in
+    user_rank = None
+    if current_user.is_authenticated:
+        cursor = db.cursor()
+        cursor.execute("""
+            SELECT COUNT(*) + 1 as rank
+            FROM user_gamification
+            WHERE points > (SELECT points FROM user_gamification WHERE user_id = ?)
+        """, (current_user.id,))
+        result = cursor.fetchone()
+        user_rank = result['rank'] if result else None
+
+    return render_template("leaderboard.html", top_users=top_users, user_rank=user_rank)
+
+@app.route("/badges")
+def badges():
+    """Badge showcase - all available badges"""
+    db = get_db()
+    cursor = db.cursor()
+
+    # Get all badges
+    cursor.execute("""
+        SELECT id, name, description, icon, requirement_type, requirement_value, tier
+        FROM badges
+        ORDER BY tier, requirement_value ASC
+    """)
+    all_badges = [dict(row) for row in cursor.fetchall()]
+
+    # If logged in, mark which badges user has earned
+    earned_badge_ids = set()
+    if current_user.is_authenticated:
+        from gamification import get_user_badges
+        user_badges = get_user_badges(db, current_user.id)
+        earned_badge_ids = {badge['id'] for badge in user_badges}
+
+    # Add earned status to each badge
+    for badge in all_badges:
+        badge['earned'] = badge['id'] in earned_badge_ids
+
+    return render_template("badges.html", badges=all_badges)
+
 def _truthy(v) -> bool:
     if v is None:
         return False
@@ -1721,6 +1832,133 @@ def api_ai_updates():
             "X-Accel-Buffering": "no"
         }
     )
+
+# ================= RevenueCat Webhook Handler ====================
+@app.route("/webhooks/revenuecat", methods=["POST"])
+def revenuecat_webhook():
+    """
+    Handle RevenueCat subscription webhooks
+    Processes subscription events: purchases, renewals, cancellations, etc.
+    """
+    try:
+        # Verify webhook authorization
+        auth_header = request.headers.get("Authorization")
+        expected_token = os.getenv("REVENUECAT_WEBHOOK_SECRET")
+
+        if expected_token and auth_header != f"Bearer {expected_token}":
+            log.warning(f"RevenueCat webhook: Invalid authorization from {get_client_ip(request)}")
+            return jsonify({"error": "Unauthorized"}), 401
+
+        # Parse webhook payload
+        payload = request.get_json()
+        if not payload:
+            log.error("RevenueCat webhook: Empty payload")
+            return jsonify({"error": "Empty payload"}), 400
+
+        event_type = payload.get("type")
+        event = payload.get("event")
+
+        if not event_type or not event:
+            log.error(f"RevenueCat webhook: Missing event type or event data: {payload}")
+            return jsonify({"error": "Invalid payload"}), 400
+
+        log.info(f"RevenueCat webhook received: {event_type}")
+
+        # Extract common fields
+        app_user_id = event.get("app_user_id")  # This is our revenuecat_user_id
+        product_id = event.get("product_id")
+
+        # Parse timestamps
+        purchased_at_ms = event.get("purchased_at_ms")
+        expiration_at_ms = event.get("expiration_at_ms")
+
+        purchased_at = datetime.fromtimestamp(purchased_at_ms / 1000.0) if purchased_at_ms else None
+        expiration_at = datetime.fromtimestamp(expiration_at_ms / 1000.0) if expiration_at_ms else None
+
+        is_trial_period = event.get("is_trial_period", False)
+
+        # Store raw payload for debugging
+        raw_data = json.dumps(payload)
+
+        # Get database connection
+        db = get_thread_db()
+
+        # Import gamification functions
+        from gamification import (
+            get_user_by_revenuecat_id,
+            upgrade_to_pro,
+            downgrade_to_free,
+            log_subscription_event
+        )
+
+        # Find user by RevenueCat ID
+        user_id = get_user_by_revenuecat_id(db, app_user_id)
+
+        if not user_id:
+            log.warning(f"RevenueCat webhook: User not found for revenuecat_id: {app_user_id}")
+            # Log event anyway for debugging
+            log_subscription_event(
+                db, None, event_type, app_user_id,
+                product_id=product_id,
+                purchased_at=purchased_at,
+                expiration_at=expiration_at,
+                is_trial=is_trial_period,
+                raw_data=raw_data
+            )
+            db.close()
+            return jsonify({"status": "ok", "message": "User not found, event logged"}), 200
+
+        # Handle different event types
+        if event_type in ["INITIAL_PURCHASE", "RENEWAL"]:
+            # Upgrade to pro
+            upgrade_to_pro(
+                db, user_id, app_user_id,
+                is_trial=is_trial_period,
+                subscription_end=expiration_at
+            )
+            log.info(f"User {user_id} upgraded to Pro via {event_type}")
+
+        elif event_type in ["CANCELLATION", "EXPIRATION"]:
+            # Downgrade to free
+            downgrade_to_free(db, user_id)
+            log.info(f"User {user_id} downgraded to Free via {event_type}")
+
+        elif event_type == "BILLING_ISSUE":
+            # Mark subscription as having billing issues
+            cursor = db.cursor()
+            cursor.execute("""
+                UPDATE users
+                SET subscription_status = 'expired'
+                WHERE id = ?
+            """, (user_id,))
+            db.commit()
+            log.warning(f"User {user_id} has billing issues")
+
+        elif event_type == "PRODUCT_CHANGE":
+            # Handle product changes (upgrade/downgrade)
+            new_product_id = event.get("new_product_id")
+            log.info(f"User {user_id} changed product to {new_product_id}")
+            # For now, just refresh the subscription
+            if expiration_at:
+                upgrade_to_pro(db, user_id, app_user_id, subscription_end=expiration_at)
+
+        # Log the event
+        log_subscription_event(
+            db, user_id, event_type, app_user_id,
+            product_id=product_id,
+            purchased_at=purchased_at,
+            expiration_at=expiration_at,
+            is_trial=is_trial_period,
+            raw_data=raw_data
+        )
+
+        db.close()
+
+        return jsonify({"status": "ok"}), 200
+
+    except Exception as e:
+        log.exception(f"RevenueCat webhook error: {e}")
+        return jsonify({"error": "Internal server error"}), 500
 
 if __name__ == "__main__":
     init_db()
