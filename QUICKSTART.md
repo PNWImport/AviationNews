@@ -40,10 +40,19 @@ Open **http://localhost:5001** in your browser.
 To enable AI-powered summaries, you need a Cloudflare Worker:
 
 1. Set `CF_WORKER_URL` and `CF_WORKER_TOKEN` in `.env`
-2. Deploy the worker from `worker.js` (see SECURITY.md for details)
+2. Deploy the worker from `worker.js` - **see [WORKER_DEPLOY.md](WORKER_DEPLOY.md) for complete guide**
 3. Click "Generate AI Summaries" in the UI
 
 **Without AI Worker:** App still works for RSS feed tracking and basic sentiment analysis.
+
+**Quick Deploy:**
+```bash
+npm install -g wrangler
+wrangler login
+wrangler secret put CF_WORKER_TOKEN
+wrangler deploy
+```
+See [WORKER_DEPLOY.md](WORKER_DEPLOY.md) for detailed instructions.
 
 ---
 

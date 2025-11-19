@@ -1,0 +1,25 @@
+# Cloudflare Workers Configuration for Aviation Intelligence Hub
+# https://developers.cloudflare.com/workers/
+
+name = "aviation-intelligence-hub-ai"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# Worker settings
+workers_dev = true
+
+# AI binding for Cloudflare AI models
+# https://developers.cloudflare.com/workers-ai/
+[ai]
+binding = "AI"
+
+# Environment variables (secrets should be set via CLI, not here!)
+# Set CF_WORKER_TOKEN via: wrangler secret put CF_WORKER_TOKEN
+[vars]
+# Add any non-secret variables here
+
+# Example deployment commands:
+# 1. Install Wrangler: npm install -g wrangler
+# 2. Login: wrangler login
+# 3. Set secret: wrangler secret put CF_WORKER_TOKEN
+# 4. Deploy: wrangler deploy

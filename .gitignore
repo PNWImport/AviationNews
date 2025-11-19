@@ -88,3 +88,10 @@ instance/
 # OS
 Thumbs.db
 desktop.ini
+
+# Cloudflare Workers
+.wrangler/
+wrangler.toml.local
+node_modules/
+package-lock.json
+.dev.vars

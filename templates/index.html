@@ -1165,24 +1165,35 @@
         return arr;
       }
       function render(items) {
-        listEl.innerHTML = '';
         let data = (items ?? newsCache);
         if (currentFilter !== 'all') {
           data = data.filter(it => it.sentiment_label === currentFilter);
         }
         data = applySort(data);
 
-        // Show/hide empty state
+        // Check empty state BEFORE clearing innerHTML
         const emptyState = $('#emptyState');
+
         if (newsCache.length === 0) {
-          emptyState.style.display = 'block';
+          // Show empty state, don't render items
+          if (emptyState) emptyState.style.display = 'block';
+          // Clear any existing items (but preserve emptyState)
+          Array.from(listEl.children).forEach(child => {
+            if (child.id !== 'emptyState') child.remove();
+          });
           return;
         } else {
-          emptyState.style.display = 'none';
+          // Hide empty state, will render items
+          if (emptyState) emptyState.style.display = 'none';
         }
 
+        // Clear items (preserve emptyState)
+        Array.from(listEl.children).forEach(child => {
+          if (child.id !== 'emptyState') child.remove();
+        });
+
         if (data.length === 0) {
-          listEl.innerHTML = '<div style="padding:40px;text-align:center"><i class="fa-solid fa-filter-circle-xmark" style="font-size:2.5rem;color:var(--muted);opacity:0.4;margin-bottom:12px;display:block"></i><div style="color:var(--muted)">No articles match your current filter</div><button onclick="document.querySelector(\'.filter-btn[data-filter=all]\').click()" class="btn btn-outline" style="margin-top:12px">Clear Filters</button></div>';
+          listEl.insertAdjacentHTML('beforeend', '<div style="padding:40px;text-align:center"><i class="fa-solid fa-filter-circle-xmark" style="font-size:2.5rem;color:var(--muted);opacity:0.4;margin-bottom:12px;display:block"></i><div style="color:var(--muted)">No articles match your current filter</div><button onclick="document.querySelector(\'.filter-btn[data-filter=all]\').click()" class="btn btn-outline" style="margin-top:12px">Clear Filters</button></div>');
           return;
         }
         for (const it of data) {
