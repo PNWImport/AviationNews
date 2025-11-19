@@ -44,6 +44,7 @@ from flask_talisman import Talisman
 from flask_login import LoginManager, current_user
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
+from apscheduler.triggers.cron import CronTrigger
 import atexit
 
 # Load environment variables from .env file
@@ -314,6 +315,160 @@ def cleanup_unverified_users():
     except Exception as e:
         log.error(f"Cleanup job failed: {e}")
 
+def send_daily_digest():
+    """
+    Send daily digest email to all subscribed users
+    Runs at 8:00 AM UTC daily
+    """
+    try:
+        log.info("Starting daily digest job...")
+
+        db = get_thread_db()
+        cursor = db.cursor()
+
+        # Get all verified users who haven't unsubscribed
+        cursor.execute("""
+            SELECT id, email, name, unsubscribe_token
+            FROM users
+            WHERE is_verified = 1
+        """)
+        users = cursor.fetchall()
+
+        if not users:
+            log.info("Daily digest: No users to send to")
+            return
+
+        # Get articles from last 24 hours
+        from datetime import timedelta
+        yesterday = (datetime.utcnow() - timedelta(days=1)).isoformat()
+
+        cursor.execute("""
+            SELECT airline as title, source, ai_summary, sentiment, date as published_date
+            FROM news_items
+            WHERE date >= ?
+            AND ai_summary IS NOT NULL
+            ORDER BY sentiment ASC, date DESC
+            LIMIT 10
+        """, (yesterday,))
+
+        articles = []
+        for row in cursor.fetchall():
+            # ai_summary might be JSON string, try to parse it
+            ai_summary_text = row['ai_summary']
+            if ai_summary_text:
+                try:
+                    import json
+                    ai_data = json.loads(ai_summary_text)
+                    ai_summary_text = ai_data.get('summary', ai_summary_text)
+                except:
+                    pass  # Use as-is if not JSON
+
+            articles.append({
+                'title': row['title'],
+                'url': row['source'],  # source field contains the URL
+                'source': row['source'],
+                'ai_summary': ai_summary_text,
+                'sentiment': row['sentiment'] or 0,
+                'published_date': row['published_date']
+            })
+
+        if not articles:
+            log.info("Daily digest: No articles from last 24 hours")
+            return
+
+        # Send digest to each user
+        base_url = config.HOST if config.HOST.startswith('http') else f"http://{config.HOST}:{config.PORT}"
+        sent_count = 0
+
+        for user in users:
+            try:
+                success = email_service.send_daily_digest_email(
+                    to_email=user['email'],
+                    name=user['name'],
+                    articles=articles,
+                    unsubscribe_token=user['unsubscribe_token'],
+                    base_url=base_url
+                )
+
+                if success:
+                    sent_count += 1
+                    log.info(f"Daily digest sent to: {user['email']}")
+                else:
+                    log.warning(f"Failed to send daily digest to: {user['email']}")
+
+            except Exception as e:
+                log.error(f"Error sending daily digest to {user['email']}: {e}")
+
+        log.info(f"Daily digest job completed: {sent_count}/{len(users)} emails sent")
+
+    except Exception as e:
+        log.error(f"Daily digest job failed: {e}")
+
+def check_and_send_breaking_news(article_data: dict):
+    """
+    Check if article qualifies as breaking news and send alerts
+    Breaking news criteria: sentiment < -0.3 and recent (< 6 hours old)
+    """
+    try:
+        sentiment = article_data.get('sentiment', 0)
+
+        # Check if it's breaking news (high-negative sentiment)
+        if sentiment >= -0.3:
+            return  # Not breaking news
+
+        # Check if article is recent (< 6 hours old)
+        published_date = article_data.get('published_date')
+        if published_date:
+            try:
+                pub_time = datetime.fromisoformat(published_date.replace('Z', '+00:00'))
+                age_hours = (datetime.utcnow() - pub_time.replace(tzinfo=None)).total_seconds() / 3600
+
+                if age_hours > 6:
+                    return  # Too old
+            except:
+                pass  # If we can't parse date, proceed anyway
+
+        log.info(f"Breaking news detected: {article_data.get('title')} (sentiment: {sentiment:.2f})")
+
+        # Get all verified users
+        db = get_thread_db()
+        cursor = db.cursor()
+
+        cursor.execute("""
+            SELECT id, email, name, unsubscribe_token
+            FROM users
+            WHERE is_verified = 1
+        """)
+        users = cursor.fetchall()
+
+        if not users:
+            return
+
+        # Send breaking news alert to each user
+        base_url = config.HOST if config.HOST.startswith('http') else f"http://{config.HOST}:{config.PORT}"
+        sent_count = 0
+
+        for user in users:
+            try:
+                success = email_service.send_breaking_news_alert(
+                    to_email=user['email'],
+                    name=user['name'],
+                    article=article_data,
+                    unsubscribe_token=user['unsubscribe_token'],
+                    base_url=base_url
+                )
+
+                if success:
+                    sent_count += 1
+
+            except Exception as e:
+                log.error(f"Error sending breaking news alert to {user['email']}: {e}")
+
+        log.info(f"Breaking news alerts sent: {sent_count}/{len(users)} users")
+
+    except Exception as e:
+        log.error(f"Breaking news check failed: {e}")
+
 # Initialize background scheduler for user cleanup
 scheduler = BackgroundScheduler()
 cleanup_interval = int(os.getenv('EMAIL_CLEANUP_INTERVAL', '3600'))  # Default: 1 hour
@@ -322,6 +477,15 @@ scheduler.add_job(
     trigger=IntervalTrigger(seconds=cleanup_interval),
     id='cleanup_unverified_users',
     name='Cleanup unverified users older than 12 hours',
+    replace_existing=True
+)
+
+# Add daily digest job at 8:00 AM UTC
+scheduler.add_job(
+    func=send_daily_digest,
+    trigger=CronTrigger(hour=8, minute=0, timezone='UTC'),
+    id='daily_digest',
+    name='Send daily digest at 8:00 AM UTC',
     replace_existing=True
 )
 
@@ -1472,6 +1636,22 @@ def api_ai_summarize():
                         conn_cur.execute("UPDATE news_items SET ai_summary = ? WHERE id = ?", (ai_json_str, nid))
 
                 updated += 1
+
+                # Check for breaking news after AI summary is added
+                if not existing_ai:  # Only check new summaries
+                    try:
+                        article_data = {
+                            'title': orig_row.get('airline', 'Breaking News'),
+                            'url': orig_row.get('source', ''),
+                            'source': orig_row.get('source', ''),
+                            'ai_summary': short_snip,
+                            'sentiment': orig_row.get('sentiment', 0),
+                            'published_date': orig_row.get('date', '')
+                        }
+                        # Run breaking news check in background thread to avoid blocking
+                        threading.Thread(target=check_and_send_breaking_news, args=(article_data,), daemon=True).start()
+                    except Exception as e:
+                        log.error(f"Error triggering breaking news check: {e}")
 
                 _emit_summary_events(nid, ai_json_str, short_snip)
 
