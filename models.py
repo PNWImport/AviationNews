@@ -32,7 +32,7 @@ class User(UserMixin):
         self.verification_token_expires = user_data.get('verification_token_expires')
         self.created_at = user_data['created_at']
         self.last_login = user_data.get('last_login')
-        self.is_active = bool(user_data.get('is_active', 1))
+        self._is_active = bool(user_data.get('is_active', 1))
 
         # Email preferences
         self.email_daily_digest = bool(user_data.get('email_daily_digest', 1))
@@ -42,6 +42,11 @@ class User(UserMixin):
     def get_id(self):
         """Required by Flask-Login"""
         return str(self.id)
+
+    @property
+    def is_active(self):
+        """Required by Flask-Login - user account is active"""
+        return self._is_active
 
     @property
     def is_authenticated(self):
