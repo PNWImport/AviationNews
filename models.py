@@ -147,10 +147,46 @@ def init_user_tables(db):
         )
     """)
 
+    # Sessions table (track active sessions)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS user_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            session_id TEXT UNIQUE NOT NULL,
+            ip_address TEXT,
+            user_agent TEXT,
+            device_info TEXT,
+            remember_me INTEGER DEFAULT 0,
+            created_at TEXT NOT NULL,
+            last_activity TEXT NOT NULL,
+            expires_at TEXT,
+            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        )
+    """)
+
+    # Login history table (audit trail)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS login_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            email TEXT NOT NULL,
+            ip_address TEXT,
+            user_agent TEXT,
+            device_info TEXT,
+            login_time TEXT NOT NULL,
+            success INTEGER NOT NULL,
+            failure_reason TEXT,
+            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL
+        )
+    """)
+
     # Create indexes for performance
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_verification_token ON users(verification_token)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_token ON password_reset_tokens(token)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_sessions_session_id ON user_sessions(session_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_login_history_user_id ON login_history(user_id)")
 
     db.commit()
 
@@ -589,3 +625,259 @@ def update_user_profile(db, user_id: int, name: Optional[str] = None) -> tuple[b
     db.commit()
 
     return True, "Profile updated successfully"
+
+
+# =============== Session Management Functions ===============
+
+def parse_user_agent(user_agent: str) -> str:
+    """Parse user agent string to extract device/browser info"""
+    if not user_agent:
+        return "Unknown Device"
+
+    # Simple parsing - in production, use a library like user-agents
+    ua = user_agent.lower()
+
+    if 'mobile' in ua or 'android' in ua or 'iphone' in ua:
+        if 'android' in ua:
+            return "Android Mobile"
+        elif 'iphone' in ua or 'ipad' in ua:
+            return "iOS Device"
+        else:
+            return "Mobile Device"
+    elif 'windows' in ua:
+        return "Windows PC"
+    elif 'mac' in ua:
+        return "Mac"
+    elif 'linux' in ua:
+        return "Linux"
+    else:
+        return "Unknown Device"
+
+
+def create_session(db, user_id: int, session_id: str, ip_address: str,
+                   user_agent: str, remember_me: bool = False) -> bool:
+    """
+    Create new session record
+    Returns: True if created successfully
+    """
+    cursor = db.cursor()
+
+    device_info = parse_user_agent(user_agent)
+    now = datetime.utcnow().isoformat()
+
+    # Set expiration based on remember_me
+    if remember_me:
+        expires_at = (datetime.utcnow() + timedelta(days=30)).isoformat()
+    else:
+        expires_at = (datetime.utcnow() + timedelta(days=1)).isoformat()
+
+    try:
+        cursor.execute("""
+            INSERT INTO user_sessions
+            (user_id, session_id, ip_address, user_agent, device_info, remember_me, created_at, last_activity, expires_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (user_id, session_id, ip_address, user_agent, device_info, 1 if remember_me else 0, now, now, expires_at))
+
+        db.commit()
+        return True
+    except Exception:
+        return False
+
+
+def update_session_activity(db, session_id: str) -> bool:
+    """Update last_activity timestamp for a session"""
+    cursor = db.cursor()
+
+    now = datetime.utcnow().isoformat()
+
+    cursor.execute("""
+        UPDATE user_sessions
+        SET last_activity = ?
+        WHERE session_id = ?
+    """, (now, session_id))
+
+    db.commit()
+    return cursor.rowcount > 0
+
+
+def get_active_sessions(db, user_id: int) -> list[Dict[str, Any]]:
+    """
+    Get all active (non-expired) sessions for a user
+    Returns: List of session dictionaries
+    """
+    cursor = db.cursor()
+
+    now = datetime.utcnow().isoformat()
+
+    cursor.execute("""
+        SELECT id, session_id, ip_address, device_info, created_at, last_activity, remember_me
+        FROM user_sessions
+        WHERE user_id = ?
+        AND (expires_at IS NULL OR expires_at > ?)
+        ORDER BY last_activity DESC
+    """, (user_id, now))
+
+    sessions = []
+    for row in cursor.fetchall():
+        sessions.append({
+            'id': row['id'],
+            'session_id': row['session_id'],
+            'ip_address': row['ip_address'],
+            'device_info': row['device_info'],
+            'created_at': row['created_at'],
+            'last_activity': row['last_activity'],
+            'remember_me': bool(row['remember_me'])
+        })
+
+    return sessions
+
+
+def revoke_session(db, user_id: int, session_id: str) -> tuple[bool, str]:
+    """
+    Revoke a specific session
+    Returns: (success, message)
+    """
+    cursor = db.cursor()
+
+    # Verify session belongs to user
+    cursor.execute("""
+        SELECT id FROM user_sessions
+        WHERE session_id = ? AND user_id = ?
+    """, (session_id, user_id))
+
+    if not cursor.fetchone():
+        return False, "Session not found"
+
+    # Delete the session
+    cursor.execute("""
+        DELETE FROM user_sessions
+        WHERE session_id = ? AND user_id = ?
+    """, (session_id, user_id))
+
+    db.commit()
+    return True, "Session revoked successfully"
+
+
+def revoke_all_sessions_except(db, user_id: int, current_session_id: str) -> tuple[bool, str]:
+    """
+    Revoke all sessions for a user except the current one
+    Returns: (success, message)
+    """
+    cursor = db.cursor()
+
+    cursor.execute("""
+        DELETE FROM user_sessions
+        WHERE user_id = ? AND session_id != ?
+    """, (user_id, current_session_id))
+
+    revoked_count = cursor.rowcount
+    db.commit()
+
+    return True, f"Revoked {revoked_count} session(s)"
+
+
+def cleanup_expired_sessions(db) -> int:
+    """
+    Remove expired sessions from database
+    Returns: Number of sessions removed
+    """
+    cursor = db.cursor()
+
+    now = datetime.utcnow().isoformat()
+
+    cursor.execute("""
+        DELETE FROM user_sessions
+        WHERE expires_at IS NOT NULL AND expires_at < ?
+    """, (now,))
+
+    removed_count = cursor.rowcount
+    db.commit()
+
+    return removed_count
+
+
+def log_login_attempt(db, email: str, user_id: Optional[int], ip_address: str,
+                      user_agent: str, success: bool, failure_reason: Optional[str] = None) -> bool:
+    """
+    Log login attempt to login_history table
+    Returns: True if logged successfully
+    """
+    cursor = db.cursor()
+
+    device_info = parse_user_agent(user_agent)
+    now = datetime.utcnow().isoformat()
+
+    try:
+        cursor.execute("""
+            INSERT INTO login_history
+            (user_id, email, ip_address, user_agent, device_info, login_time, success, failure_reason)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (user_id, email, ip_address, user_agent, device_info, now, 1 if success else 0, failure_reason))
+
+        db.commit()
+        return True
+    except Exception:
+        return False
+
+
+def get_login_history(db, user_id: int, limit: int = 20) -> list[Dict[str, Any]]:
+    """
+    Get login history for a user
+    Returns: List of login attempt dictionaries
+    """
+    cursor = db.cursor()
+
+    cursor.execute("""
+        SELECT ip_address, device_info, login_time, success, failure_reason
+        FROM login_history
+        WHERE user_id = ?
+        ORDER BY login_time DESC
+        LIMIT ?
+    """, (user_id, limit))
+
+    history = []
+    for row in cursor.fetchall():
+        history.append({
+            'ip_address': row['ip_address'],
+            'device_info': row['device_info'],
+            'login_time': row['login_time'],
+            'success': bool(row['success']),
+            'failure_reason': row['failure_reason']
+        })
+
+    return history
+
+
+def detect_suspicious_login(db, user_id: int, ip_address: str, device_info: str) -> tuple[bool, str]:
+    """
+    Detect if login is from a new/suspicious location or device
+    Returns: (is_suspicious, reason)
+    """
+    cursor = db.cursor()
+
+    # Check if this IP has been used before by this user
+    cursor.execute("""
+        SELECT COUNT(*) as count
+        FROM login_history
+        WHERE user_id = ? AND ip_address = ? AND success = 1
+    """, (user_id, ip_address))
+
+    ip_used_before = cursor.fetchone()['count'] > 0
+
+    # Check if this device has been used before
+    cursor.execute("""
+        SELECT COUNT(*) as count
+        FROM login_history
+        WHERE user_id = ? AND device_info = ? AND success = 1
+    """, (user_id, device_info))
+
+    device_used_before = cursor.fetchone()['count'] > 0
+
+    if not ip_used_before and not device_used_before:
+        return True, "New device and location"
+    elif not ip_used_before:
+        return True, "New location"
+    elif not device_used_before:
+        return True, "New device"
+    else:
+        return False, ""
