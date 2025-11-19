@@ -7,7 +7,8 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from flask_login import login_user, logout_user, login_required, current_user
 from models import (
     get_user_by_email, create_user, verify_user_email,
-    update_last_login, get_user_by_id
+    update_last_login, get_user_by_id,
+    create_password_reset_token, verify_password_reset_token, reset_user_password
 )
 from email_service import email_service
 from sanitizer import sanitizer
@@ -376,3 +377,117 @@ def update_account():
 
     flash('Preferences updated successfully', 'success')
     return redirect(url_for('auth.account'))
+
+
+@auth_bp.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    """Password reset request - REDTEAM SECURE"""
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+
+    if request.method == 'POST':
+        client_ip = get_client_ip()
+
+        # SECURITY: Rate limiting - 3 reset requests per hour per IP
+        if check_rate_limit(f"reset_{client_ip}", max_attempts=3, window=3600):
+            log.warning(f"Password reset rate limit exceeded for IP: {client_ip}")
+            flash('Too many reset requests. Please try again later.', 'error')
+            return render_template('forgot_password.html'), 429
+
+        email = request.form.get('email', '').strip()
+
+        # SECURITY: Sanitize email
+        email = sanitizer.clean_email(email)
+
+        if not email:
+            flash('Email address is required', 'error')
+            return render_template('forgot_password.html')
+
+        from app import get_db
+        db = get_db()
+
+        # Create reset token (always returns success to prevent email enumeration)
+        success, token_or_message = create_password_reset_token(db, email)
+
+        if success and token_or_message != "If that email exists, a password reset link has been sent":
+            # Token was created, send email
+            user = get_user_by_email(db, email)
+            if user:
+                base_url = request.url_root.rstrip('/')
+                email_sent = email_service.send_password_reset_email(
+                    user.email,
+                    user.name,
+                    token_or_message,
+                    base_url
+                )
+
+                if email_sent:
+                    log.info(f"Password reset email sent to: {email} - IP: {client_ip}")
+                else:
+                    log.warning(f"Failed to send password reset email to: {email}")
+
+        # Always show same message (prevent email enumeration)
+        flash(
+            'If that email address is registered, you will receive a password reset link shortly. '
+            'Check your inbox and spam folder.',
+            'success'
+        )
+        return redirect(url_for('auth.login'))
+
+    return render_template('forgot_password.html')
+
+
+@auth_bp.route('/reset-password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    """Reset password with token - REDTEAM SECURE"""
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+
+    from app import get_db
+    db = get_db()
+
+    # Verify token on GET request
+    if request.method == 'GET':
+        is_valid, user_id, message = verify_password_reset_token(db, token)
+        if not is_valid:
+            flash(message, 'error')
+            return redirect(url_for('auth.forgot_password'))
+
+        return render_template('reset_password.html', token=token)
+
+    # POST request - reset password
+    if request.method == 'POST':
+        client_ip = get_client_ip()
+
+        # Verify token is still valid
+        is_valid, user_id, message = verify_password_reset_token(db, token)
+        if not is_valid:
+            flash(message, 'error')
+            log.warning(f"Invalid password reset attempt - IP: {client_ip}")
+            return redirect(url_for('auth.forgot_password'))
+
+        password = request.form.get('password', '')
+        password_confirm = request.form.get('password_confirm', '')
+
+        # Validation
+        if not password or not password_confirm:
+            flash('All fields are required', 'error')
+            return render_template('reset_password.html', token=token)
+
+        if password != password_confirm:
+            flash('Passwords do not match', 'error')
+            return render_template('reset_password.html', token=token)
+
+        # Reset password (includes history check)
+        success, result_message = reset_user_password(db, user_id, token, password)
+
+        if success:
+            flash(
+                'Password reset successfully! You can now login with your new password.',
+                'success'
+            )
+            log.info(f"Password reset successful for user_id: {user_id} - IP: {client_ip}")
+            return redirect(url_for('auth.login'))
+        else:
+            flash(result_message, 'error')
+            return render_template('reset_password.html', token=token)

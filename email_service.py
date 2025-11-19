@@ -272,6 +272,85 @@ class EmailService:
 
         return self.send_email(to_email, subject, html_body, text_body)
 
+    def send_password_reset_email(self, to_email: str, name: str, token: str, base_url: str) -> bool:
+        """Send password reset email with token"""
+        reset_url = f"{base_url}/reset-password/{token}"
+
+        subject = "Reset your Aviation Intelligence Hub password"
+
+        html_body = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                .header {{ background: linear-gradient(135deg, #0066FF, #FF6B35); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }}
+                .content {{ background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }}
+                .button {{ display: inline-block; background: #0066FF; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }}
+                .warning {{ background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; }}
+                .footer {{ text-align: center; margin-top: 30px; color: #666; font-size: 12px; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>🔒 Password Reset Request</h1>
+                </div>
+                <div class="content">
+                    <h2>Hi {name}!</h2>
+                    <p>We received a request to reset your password for your Aviation Intelligence Hub account.</p>
+                    <p>Click the button below to reset your password (link expires in 1 hour):</p>
+                    <p style="text-align: center;">
+                        <a href="{reset_url}" class="button">Reset Password</a>
+                    </p>
+                    <p>Or copy and paste this link into your browser:</p>
+                    <p style="word-break: break-all; color: #0066FF;">{reset_url}</p>
+
+                    <div class="warning">
+                        <strong>⚠️ Security Notice:</strong><br>
+                        • If you didn't request this, you can safely ignore this email<br>
+                        • Your password will not change unless you click the link and set a new one<br>
+                        • Never share this link with anyone<br>
+                        • This link can only be used once
+                    </div>
+
+                    <p><strong>Link expires in 1 hour</strong></p>
+                </div>
+                <div class="footer">
+                    <p>&copy; 2025 Aviation Intelligence Hub. All rights reserved.</p>
+                    <p>You received this email because a password reset was requested for your account.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+
+        text_body = f"""
+        Password Reset Request
+
+        Hi {name}!
+
+        We received a request to reset your password for your Aviation Intelligence Hub account.
+
+        Reset your password by visiting this link (expires in 1 hour):
+        {reset_url}
+
+        Security Notice:
+        • If you didn't request this, you can safely ignore this email
+        • Your password will not change unless you click the link and set a new one
+        • Never share this link with anyone
+        • This link can only be used once
+
+        Link expires in 1 hour
+
+        ---
+        © 2025 Aviation Intelligence Hub. All rights reserved.
+        You received this email because a password reset was requested for your account.
+        """
+
+        return self.send_email(to_email, subject, html_body, text_body)
+
 
 # Global email service instance
 email_service = EmailService()

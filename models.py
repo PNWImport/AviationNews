@@ -311,3 +311,128 @@ def cleanup_unverified_users(db) -> int:
     deleted = cursor.rowcount
     db.commit()
     return deleted
+
+
+# =============== Password Reset Functions ===============
+
+def create_password_reset_token(db, email: str) -> tuple[bool, str]:
+    """
+    Create password reset token for user
+    Returns: (success, message)
+    """
+    cursor = db.cursor()
+
+    # Check if user exists and is verified
+    cursor.execute("SELECT * FROM users WHERE email = ?", (email.lower(),))
+    row = cursor.fetchone()
+
+    if not row:
+        # Don't reveal if email exists or not (security)
+        return True, "If that email exists, a password reset link has been sent"
+
+    user_data = dict(row)
+
+    if not user_data['is_verified']:
+        return False, "Please verify your email address first"
+
+    # Generate secure token
+    token = User.generate_token()
+    expires_at = (datetime.utcnow() + timedelta(hours=1)).isoformat()
+
+    # Delete any existing reset tokens for this user
+    cursor.execute("DELETE FROM password_reset_tokens WHERE user_id = ?", (user_data['id'],))
+
+    # Insert new reset token
+    cursor.execute("""
+        INSERT INTO password_reset_tokens (user_id, token, expires_at, used)
+        VALUES (?, ?, ?, 0)
+    """, (user_data['id'], token, expires_at))
+
+    db.commit()
+
+    return True, token
+
+
+def verify_password_reset_token(db, token: str) -> tuple[bool, Optional[int], str]:
+    """
+    Verify password reset token
+    Returns: (is_valid, user_id, message)
+    """
+    cursor = db.cursor()
+
+    cursor.execute("""
+        SELECT * FROM password_reset_tokens
+        WHERE token = ? AND used = 0
+    """, (token,))
+    row = cursor.fetchone()
+
+    if not row:
+        return False, None, "Invalid or expired reset link"
+
+    token_data = dict(row)
+
+    # Check if token expired (1 hour)
+    expires = datetime.fromisoformat(token_data['expires_at'])
+    if datetime.utcnow() > expires:
+        return False, None, "Reset link has expired (1 hour). Please request a new one"
+
+    return True, token_data['user_id'], "Token is valid"
+
+
+def reset_user_password(db, user_id: int, token: str, new_password: str) -> tuple[bool, str]:
+    """
+    Reset user password with token
+    Checks password history and marks token as used
+    Returns: (success, message)
+    """
+    cursor = db.cursor()
+
+    # Verify token is still valid and not used
+    is_valid, token_user_id, message = verify_password_reset_token(db, token)
+    if not is_valid:
+        return False, message
+
+    if token_user_id != user_id:
+        return False, "Invalid reset token"
+
+    # Validate password strength
+    is_valid_pw, error_msg = User.validate_password(new_password)
+    if not is_valid_pw:
+        return False, error_msg
+
+    # Check password history (can't reuse last 5 passwords)
+    if check_password_reuse(db, user_id, new_password):
+        return False, "You cannot reuse any of your last 5 passwords"
+
+    # Get current password hash for history
+    cursor.execute("SELECT password_hash FROM users WHERE id = ?", (user_id,))
+    row = cursor.fetchone()
+    if row:
+        old_password_hash = row['password_hash']
+
+        # Add old password to history
+        cursor.execute("""
+            INSERT INTO password_history (user_id, password_hash, created_at)
+            VALUES (?, ?, ?)
+        """, (user_id, old_password_hash, datetime.utcnow().isoformat()))
+
+    # Hash new password
+    new_password_hash = User.hash_password(new_password)
+
+    # Update user password
+    cursor.execute("""
+        UPDATE users
+        SET password_hash = ?
+        WHERE id = ?
+    """, (new_password_hash, user_id))
+
+    # Mark token as used
+    cursor.execute("""
+        UPDATE password_reset_tokens
+        SET used = 1
+        WHERE token = ?
+    """, (token,))
+
+    db.commit()
+
+    return True, "Password reset successfully"
