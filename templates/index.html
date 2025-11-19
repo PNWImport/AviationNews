@@ -1,1312 +1,1864 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AviationHub - Global Aviation Intelligence</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aviation Intelligence Hub</title>
+  <!-- Icons + Chart.js -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
     :root {
-      --primary: #0066FF;
-      --primary-dark: #0052CC;
-      --secondary: #FF6B35;
-      --dark: #1A1A2E;
-      --dark-light: #16213E;
-      --gray-50: #F9FAFB;
-      --gray-100: #F3F4F6;
-      --gray-200: #E5E7EB;
-      --gray-300: #D1D5DB;
-      --gray-400: #9CA3AF;
-      --gray-500: #6B7280;
-      --gray-600: #4B5563;
-      --gray-700: #374151;
-      --gray-800: #1F2937;
-      --gray-900: #111827;
-      --positive: #10B981;
-      --negative: #EF4444;
-      --neutral: #6B7280;
-      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-      --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
-      --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-      --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+      --primary: #2563eb;
+      --secondary: #7e22ce;
+      --accent: #3b82f6;
+      --bg: #0f1424;
+      --card: #0f1a31;
+      --text: #e6eef9;
+      --muted: #9db0c9;
+      --ring: #1d2a44;
+      --radius: 44px;
+      --hover: rgba(255,255,255,.05);
+      --shadow: 0 10px 24px rgba(0,0,0,.35);
+      --shadow-soft: 0 6px 24px rgba(0,0,0,.28);
+      --shadow-glow: 0 0 40px rgba(37, 99, 235, 0.3);
+      --focus: 0 0 0 3px rgba(96,165,250,.35);
+      --badge-pos-bg: rgba(16,185,129,.18);
+      --badge-pos: #22c55e;
+      --badge-neu-bg: rgba(148,163,184,.18);
+      --badge-neu: #cbd5e1;
+      --badge-neg-bg: rgba(239,68,68,.18);
+      --badge-neg: #f87171;
+      --toast-bg: #0b1223;
+      --toast-fg: #e6eef9;
+      --toast-ring: #1d2a44;
+      --toast-good: #16a34a;
+      --toast-bad: #ef4444;
+      --toast-info: #3b82f6;
+      --border-subtle: rgba(255,255,255,.08);
+      --toggle-bg: rgba(255,255,255,.1);
+      --topRowH: 295px;
+      --search-bg: rgba(255,255,255,.03);
+      --search-border: #2563eb40;
+      --search-focus-bg: rgba(37,99,235,.08);
+      --stat-text-primary: #ffffff;
+      --stat-text-secondary: #b8c7db;
+      --glass-bg: rgba(15, 26, 49, 0.7);
+      --glass-border: rgba(255, 255, 255, 0.1);
     }
-
-    body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: var(--gray-50);
-      color: var(--gray-900);
-      line-height: 1.6;
-      font-size: 15px;
+    body.light {
+      --bg: #f5f7fb;
+      --card: #fff;
+      --text: #0b1223;
+      --muted: #5b6b84;
+      --ring: #e3e8f3;
+      --border-subtle: rgba(0,0,0,.08);
+      --toggle-bg: rgba(0,0,0,.05);
+      --search-bg: rgba(0,0,0,.02);
+      --search-border: #2563eb30;
+      --search-focus-bg: rgba(37,99,235,.04);
+      --stat-text-primary: #0b1223;
+      --stat-text-secondary: #5b6b84;
+      --toast-bg: #ffffff;
+      --toast-fg: #0b1223;
+      --toast-ring: #e3e8f3;
+      --glass-bg: rgba(255, 255, 255, 0.7);
+      --glass-border: rgba(0, 0, 0, 0.1);
+      --shadow-glow: 0 0 40px rgba(37, 99, 235, 0.15);
     }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body { margin: 0; background: var(--bg); color: var(--text); font-family: Inter, system-ui, Arial; -webkit-font-smoothing: antialiased; position: relative; overflow-x: hidden; }
 
-    /* Top Navigation */
-    .top-nav {
-      background: var(--dark);
-      color: white;
-      padding: 0.75rem 0;
-      border-bottom: 1px solid rgba(255,255,255,0.1);
-      font-size: 0.875rem;
-    }
+    /* Particle background */
+    #particles { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; opacity: 0.4; }
+    .container { max-width: 1200px; margin: 18px auto; padding: 16px; position: relative; z-index: 1; }
 
-    .top-nav-content {
-      max-width: 1280px;
-      margin: 0 auto;
-      padding: 0 2rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .top-nav-left {
-      display: flex;
-      gap: 2rem;
-      align-items: center;
-    }
-
-    .live-badge {
-      background: var(--secondary);
-      padding: 0.25rem 0.75rem;
-      border-radius: 4px;
-      font-weight: 600;
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      animation: pulse 2s infinite;
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.7; }
-    }
-
-    .top-nav-date {
-      color: var(--gray-400);
-    }
-
-    /* Main Header */
-    .main-header {
-      background: white;
-      border-bottom: 1px solid var(--gray-200);
-      position: sticky;
-      top: 0;
-      z-index: 1000;
-      box-shadow: var(--shadow-sm);
-    }
-
-    .header-content {
-      max-width: 1280px;
-      margin: 0 auto;
-      padding: 1.5rem 2rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      text-decoration: none;
-      color: var(--dark);
-    }
-
-    .logo-icon {
-      width: 48px;
-      height: 48px;
+    /* Animated gradient header */
+    header {
+      padding: 20px;
+      border-radius: var(--radius);
+      color: #fff;
       background: linear-gradient(135deg, var(--primary), var(--secondary));
-      border-radius: 12px;
+      background-size: 200% 200%;
+      animation: gradientShift 8s ease infinite;
       display: flex;
       align-items: center;
-      justify-content: center;
-      color: white;
-      font-size: 1.5rem;
-    }
-
-    .logo-text h1 {
-      font-family: 'Playfair Display', serif;
-      font-size: 1.75rem;
-      font-weight: 900;
-      line-height: 1;
-      margin-bottom: 0.25rem;
-    }
-
-    .logo-text p {
-      font-size: 0.75rem;
-      color: var(--gray-500);
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      font-weight: 600;
-    }
-
-    .header-actions {
-      display: flex;
-      gap: 1rem;
-      align-items: center;
-    }
-
-    .search-box {
+      justify-content: space-between;
+      box-shadow: var(--shadow), var(--shadow-glow);
       position: relative;
+      overflow: hidden;
     }
-
-    .search-box input {
-      padding: 0.75rem 1rem 0.75rem 2.75rem;
-      border: 2px solid var(--gray-200);
-      border-radius: 24px;
-      width: 300px;
-      font-size: 0.875rem;
-      transition: all 0.2s;
-    }
-
-    .search-box input:focus {
-      outline: none;
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.1);
-    }
-
-    .search-box i {
+    header::before {
+      content: '';
       position: absolute;
-      left: 1rem;
-      top: 50%;
-      transform: translateY(-50%);
-      color: var(--gray-400);
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+      animation: headerGlow 6s ease-in-out infinite;
     }
-
-    .btn {
-      padding: 0.75rem 1.5rem;
-      border-radius: 8px;
+    @keyframes gradientShift {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+    @keyframes headerGlow {
+      0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.3; }
+      50% { transform: translate(10%, 10%) scale(1.1); opacity: 0.5; }
+    }
+    header h1 { margin: 0; font-size: 1.35rem; position: relative; z-index: 1; text-shadow: 0 2px 10px rgba(0,0,0,0.3); }
+    .subtitle { opacity: .95; font-size: .92rem; position: relative; z-index: 1; }
+    .theme-toggle {
       border: none;
-      font-weight: 600;
+      border-radius: 999px;
+      padding: 8px 14px;
+      background: rgba(255,255,255,.18);
+      backdrop-filter: blur(10px);
+      color: #fff;
       cursor: pointer;
-      transition: all 0.2s;
-      font-size: 0.875rem;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
+      transition: all .3s ease;
+      position: relative;
+      z-index: 1;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+    .theme-toggle:hover {
+      background: rgba(255,255,255,.28);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
     }
 
+    /* Glassmorphism panels */
+    .panel {
+      background: var(--glass-bg);
+      backdrop-filter: blur(10px) saturate(180%);
+      -webkit-backdrop-filter: blur(10px) saturate(180%);
+      border-radius: 16px;
+      box-shadow: var(--shadow-soft), 0 0 0 1px var(--glass-border);
+      padding: 16px;
+      border: 1px solid var(--glass-border);
+      transition: all .3s ease;
+    }
+    .panel:hover {
+      box-shadow: var(--shadow), 0 0 0 1px rgba(37, 99, 235, 0.3);
+      transform: translateY(-2px);
+    }
+    .ingest-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+    .input { flex: 1; min-width: 220px; border: 1px solid var(--ring); border-radius: 999px; background: transparent; padding: 12px 14px; color: var(--text); }
+    #search { background: var(--search-bg); border: 2px solid var(--search-border); transition: all .3s ease; }
+    #search:focus { outline: none; background: var(--search-focus-bg); border-color: var(--primary); box-shadow: 0 0 0 4px rgba(37,99,235,.1); }
+    /* Enhanced buttons with ripple effect */
+    .btn {
+      border: none;
+      border-radius: 999px;
+      padding: 10px 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all .3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .btn::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.3);
+      transform: translate(-50%, -50%);
+      transition: width 0.6s, height 0.6s;
+    }
+    .btn:active::before {
+      width: 300px;
+      height: 300px;
+    }
     .btn-primary {
-      background: var(--primary);
-      color: white;
+      background: linear-gradient(135deg, var(--primary), #3b82f6);
+      color: #fff;
+      box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4);
     }
-
     .btn-primary:hover {
-      background: var(--primary-dark);
-      transform: translateY(-1px);
-      box-shadow: var(--shadow-md);
+      background: linear-gradient(135deg, #3b82f6, var(--secondary));
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(37, 99, 235, 0.5);
     }
-
     .btn-outline {
       background: transparent;
-      border: 2px solid var(--gray-300);
-      color: var(--gray-700);
+      border: 2px solid var(--ring);
+      color: var(--muted);
+      backdrop-filter: blur(5px);
     }
-
     .btn-outline:hover {
       border-color: var(--primary);
       color: var(--primary);
+      background: rgba(37, 99, 235, 0.1);
+      transform: translateY(-1px);
     }
-
-    /* Navigation Tabs */
-    .nav-tabs {
-      background: white;
-      border-bottom: 2px solid var(--gray-200);
+    .btn-muted {
+      background: transparent;
+      border: 1px solid var(--ring);
+      color: var(--muted);
+      opacity: .9;
     }
-
-    .nav-tabs-content {
-      max-width: 1280px;
-      margin: 0 auto;
-      padding: 0 2rem;
+    .btn-muted:hover {
+      opacity: 1;
+      border-color: var(--primary);
+      background: rgba(37, 99, 235, 0.05);
+    }
+    .btn-danger {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      color: #fff;
+      box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
+    }
+    .btn-danger:hover {
+      background: linear-gradient(135deg, #dc2626, #b91c1c);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(239, 68, 68, 0.5);
+    }
+    .checkbox-wrapper { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+    .checkbox-wrapper input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--primary); cursor: pointer; }
+    .checkbox-wrapper label { cursor: pointer; user-select: none; font-size: .92rem; color: var(--muted); }
+    .dashboard { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: var(--topRowH) auto; grid-template-areas: "cards chart" "list list"; gap: 16px; margin-top: 16px; }
+    .cards { grid-area: cards; height: 100%; }
+    .chartBox {
+      grid-area: chart;
+      height: 100%;
       display: flex;
-      gap: 2rem;
-    }
-
-    .nav-tab {
-      padding: 1rem 0;
-      border: none;
-      background: none;
-      color: var(--gray-600);
-      font-weight: 600;
-      cursor: pointer;
-      border-bottom: 3px solid transparent;
-      transition: all 0.2s;
-      font-size: 0.875rem;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .nav-tab:hover {
-      color: var(--primary);
-    }
-
-    .nav-tab.active {
-      color: var(--primary);
-      border-bottom-color: var(--primary);
-    }
-
-    /* Main Container */
-    .container {
-      max-width: 1280px;
-      margin: 0 auto;
-      padding: 2rem;
-    }
-
-    /* Hero Stats Bar */
-    .stats-bar {
-      background: white;
+      flex-direction: column;
+      background: var(--glass-bg);
+      backdrop-filter: blur(10px) saturate(180%);
+      -webkit-backdrop-filter: blur(10px) saturate(180%);
       border-radius: 16px;
-      padding: 2rem;
-      margin-bottom: 2rem;
-      box-shadow: var(--shadow);
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 2rem;
+      padding: 16px;
+      border: 1px solid var(--glass-border);
+      box-shadow: var(--shadow-soft);
+      transition: all .3s ease;
     }
-
-    .stat-item {
+    .chartBox:hover {
+      box-shadow: var(--shadow), 0 0 0 1px rgba(37, 99, 235, 0.3);
+      transform: translateY(-2px);
+    }
+    .chartCanvas { flex: 1; min-height: 0; position: relative; }
+    .chartFooter { display: flex; justify-content: center; margin-top: 10px; }
+    .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; height: 100%; }
+    .stat {
+      background: var(--glass-bg);
+      backdrop-filter: blur(10px) saturate(180%);
+      -webkit-backdrop-filter: blur(10px) saturate(180%);
+      border: 1px solid var(--glass-border);
+      border-radius: 16px;
+      padding: 18px;
       text-align: center;
-      padding: 1rem;
-      border-right: 1px solid var(--gray-200);
-    }
-
-    .stat-item:last-child {
-      border-right: none;
-    }
-
-    .stat-value {
-      font-size: 2.5rem;
-      font-weight: 800;
-      line-height: 1;
-      margin-bottom: 0.5rem;
-    }
-
-    .stat-positive { color: var(--positive); }
-    .stat-negative { color: var(--negative); }
-    .stat-neutral { color: var(--neutral); }
-    .stat-primary { color: var(--primary); }
-
-    .stat-label {
-      color: var(--gray-600);
-      font-size: 0.875rem;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      font-weight: 600;
-    }
-
-    /* Filter Bar */
-    .filter-bar {
-      background: white;
-      padding: 1.5rem 2rem;
-      border-radius: 12px;
-      margin-bottom: 2rem;
-      box-shadow: var(--shadow-sm);
+      transition: all .4s cubic-bezier(0.4, 0, 0.2, 1);
       display: flex;
-      justify-content: space-between;
+      flex-direction: column;
+      justify-content: center;
       align-items: center;
-      flex-wrap: wrap;
-      gap: 1rem;
-    }
-
-    .filter-group {
-      display: flex;
-      gap: 0.5rem;
-      flex-wrap: wrap;
-    }
-
-    .filter-btn {
-      padding: 0.5rem 1rem;
-      border: 2px solid var(--gray-200);
-      background: white;
-      border-radius: 20px;
-      cursor: pointer;
-      transition: all 0.2s;
-      font-size: 0.875rem;
-      font-weight: 600;
-      color: var(--gray-700);
-    }
-
-    .filter-btn:hover {
-      border-color: var(--primary);
-      color: var(--primary);
-    }
-
-    .filter-btn.active {
-      background: var(--primary);
-      border-color: var(--primary);
-      color: white;
-    }
-
-    .filter-btn i {
-      margin-right: 0.5rem;
-    }
-
-    /* News Grid */
-    .news-grid {
-      display: grid;
-      grid-template-columns: 2fr 1fr;
-      gap: 2rem;
-      margin-bottom: 2rem;
-    }
-
-    /* Featured Article (Large) */
-    .featured-article {
-      background: white;
-      border-radius: 16px;
+      min-height: 0;
+      position: relative;
       overflow: hidden;
-      box-shadow: var(--shadow-lg);
-      transition: all 0.3s;
-      cursor: pointer;
-      position: relative;
     }
-
-    .featured-article:hover {
-      transform: translateY(-4px);
-      box-shadow: var(--shadow-xl);
-    }
-
-    .article-image {
-      width: 100%;
-      height: 400px;
-      background: linear-gradient(135deg, var(--primary), var(--secondary));
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 4rem;
-      color: white;
-      position: relative;
-    }
-
-    .article-badge {
+    .stat::before {
+      content: '';
       position: absolute;
-      top: 1rem;
-      left: 1rem;
-      padding: 0.5rem 1rem;
-      border-radius: 8px;
-      font-size: 0.75rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+      transition: left 0.5s ease;
     }
-
-    .badge-positive { background: var(--positive); color: white; }
-    .badge-negative { background: var(--negative); color: white; }
-    .badge-neutral { background: var(--neutral); color: white; }
-
-    .article-content {
-      padding: 2rem;
+    .stat:hover::before {
+      left: 100%;
     }
-
-    .article-meta {
-      display: flex;
-      gap: 1rem;
-      margin-bottom: 1rem;
-      font-size: 0.75rem;
-      color: var(--gray-500);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+    .stat:hover {
+      transform: translateY(-4px) scale(1.02);
+      box-shadow: var(--shadow), var(--shadow-glow);
+      border-color: rgba(37, 99, 235, 0.5);
+    }
+    .stat-label {
+      color: var(--stat-text-secondary);
+      font-size: .85rem;
+      margin-bottom: 10px;
       font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .8px;
     }
-
-    .article-title {
-      font-family: 'Playfair Display', serif;
-      font-size: 2rem;
+    .stat-value {
+      font-size: 2.8rem;
       font-weight: 900;
-      line-height: 1.2;
-      margin-bottom: 1rem;
-      color: var(--dark);
+      color: var(--stat-text-primary);
+      line-height: 1;
+      margin: 0;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      transition: transform 0.3s ease;
     }
-
-    .article-excerpt {
-      color: var(--gray-600);
-      line-height: 1.7;
-      margin-bottom: 1.5rem;
+    .stat:hover .stat-value {
+      transform: scale(1.1);
     }
-
-    .article-footer {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding-top: 1rem;
-      border-top: 1px solid var(--gray-200);
-    }
-
-    .read-more {
-      color: var(--primary);
-      font-weight: 600;
-      text-decoration: none;
+    .stat-trend {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
-      transition: gap 0.2s;
-    }
-
-    .read-more:hover {
-      gap: 0.75rem;
-    }
-
-    /* Article List (Smaller) */
-    .article-list {
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-    }
-
-    .article-card {
-      background: white;
-      border-radius: 12px;
-      padding: 1.5rem;
-      box-shadow: var(--shadow);
-      transition: all 0.2s;
-      cursor: pointer;
-      border-left: 4px solid transparent;
-    }
-
-    .article-card:hover {
-      transform: translateX(4px);
-      box-shadow: var(--shadow-md);
-    }
-
-    .article-card.positive { border-left-color: var(--positive); }
-    .article-card.negative { border-left-color: var(--negative); }
-    .article-card.neutral { border-left-color: var(--neutral); }
-
-    .card-title {
-      font-size: 1.125rem;
+      gap: 4px;
+      margin-top: 10px;
+      font-size: .9rem;
       font-weight: 700;
-      margin-bottom: 0.5rem;
-      line-height: 1.3;
-      color: var(--dark);
+      animation: trendBounce 2s ease-in-out infinite;
     }
-
-    .card-excerpt {
-      font-size: 0.875rem;
-      color: var(--gray-600);
-      margin-bottom: 0.75rem;
-      line-height: 1.5;
+    @keyframes trendBounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-2px); }
     }
-
-    /* Feed Management */
-    .feed-section {
-      background: white;
+    .trend-indicator { font-size: 1rem; }
+    .trend-up { color: var(--badge-pos); text-shadow: 0 0 10px rgba(34, 197, 94, 0.5); }
+    .trend-down { color: var(--badge-neg); text-shadow: 0 0 10px rgba(248, 113, 113, 0.5); }
+    .sort-controls { display: flex; gap: 8px; align-items: center; margin-left: 12px; }
+    .sort-btn { padding: 8px 12px; border-radius: 999px; border: 1px solid var(--ring); background: transparent; cursor: pointer; transition: .2s; font-size: .85rem; display: flex; align-items: center; gap: 6px; color: var(--muted); }
+    .sort-btn:hover { border-color: var(--primary); color: var(--primary); }
+    .sort-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .listControls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+    .listControls .input { flex: 1; min-width: 260px; }
+    .filters { display: flex; gap: 8px; align-items: center; }
+    .filter-btn { padding: 8px 12px; border-radius: 999px; border: 1px solid var(--ring); background: transparent; cursor: pointer; transition: .2s; }
+    .filter-btn:hover { border-color: var(--primary); }
+    .filter-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .listWrap { grid-area: list; display: flex; flex-direction: column; height: 70vh; }
+    .listWrap .list {
+      background: var(--glass-bg);
+      backdrop-filter: blur(10px) saturate(180%);
+      -webkit-backdrop-filter: blur(10px) saturate(180%);
+      border: 1px solid var(--glass-border);
       border-radius: 16px;
-      padding: 2rem;
-      box-shadow: var(--shadow);
-      margin-bottom: 2rem;
-    }
-
-    .section-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 2rem;
-      padding-bottom: 1rem;
-      border-bottom: 2px solid var(--gray-200);
-    }
-
-    .section-title {
-      font-size: 1.5rem;
-      font-weight: 800;
-      color: var(--dark);
-    }
-
-    .feed-input-group {
-      display: flex;
-      gap: 0.75rem;
-      margin-bottom: 1.5rem;
-    }
-
-    .feed-input {
+      padding: 10px;
       flex: 1;
-      padding: 0.875rem 1.25rem;
-      border: 2px solid var(--gray-200);
-      border-radius: 8px;
-      font-size: 0.875rem;
-      transition: all 0.2s;
+      overflow-y: auto;
+      overflow-x: hidden;
+      min-height: 0;
+      box-shadow: var(--shadow-soft);
     }
-
-    .feed-input:focus {
-      outline: none;
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.1);
-    }
-
-    .feed-list {
+    .item {
       display: grid;
-      gap: 1rem;
-    }
-
-    .feed-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 1.25rem;
-      background: var(--gray-50);
-      border-radius: 8px;
-      border: 1px solid var(--gray-200);
-      transition: all 0.2s;
-    }
-
-    .feed-item:hover {
-      background: white;
-      box-shadow: var(--shadow-sm);
-    }
-
-    .feed-info {
-      flex: 1;
-    }
-
-    .feed-name {
-      font-weight: 600;
-      color: var(--dark);
-      margin-bottom: 0.25rem;
-    }
-
-    .feed-url {
-      font-size: 0.75rem;
-      color: var(--gray-500);
-      font-family: monospace;
-    }
-
-    .feed-actions {
-      display: flex;
-      gap: 0.5rem;
-    }
-
-    .icon-btn {
-      width: 36px;
-      height: 36px;
-      border-radius: 6px;
-      border: none;
-      background: var(--gray-100);
-      color: var(--gray-600);
+      grid-template-columns: auto 1fr;
+      gap: 12px;
+      padding: 14px;
+      border-radius: 12px;
+      align-items: flex-start;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all .3s cubic-bezier(0.4, 0, 0.2, 1);
+      overflow-x: hidden;
+      border: 1px solid transparent;
+    }
+    .item:hover {
+      background: var(--hover);
+      transform: translateY(-2px) translateX(4px);
+      border-color: rgba(37, 99, 235, 0.2);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .row-head { display: flex; gap: 10px; align-items: center; }
+    .check { accent-color: var(--primary); width: 18px; height: 18px; cursor: pointer; }
+    .icon { width: 44px; height: 44px; border-radius: 10px; background: linear-gradient(135deg, var(--primary), var(--secondary)); display: flex; align-items: center; justify-content: center; color: #fff; }
+    .badge { padding: 6px 10px; border-radius: 999px; font-weight: 800; font-size: .78rem; margin-left: 8px; }
+    .positive { background: var(--badge-pos-bg); color: var(--badge-pos); }
+    .neutral { background: var(--badge-neu-bg); color: var(--badge-neu); }
+    .negative { background: var(--badge-neg-bg); color: var(--badge-neg); }
+    .detail-content { background: var(--card); border: 1px solid var(--ring); border-radius: 12px; padding: 20px; margin: 8px 0; max-width: 100%; }
+    .full-content { background: var(--bg); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 16px; margin-top: 16px; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word; max-height: 400px; overflow-y: auto; }
+    /* Enhanced AI Analysis Section */
+    .ai-analysis {
+      margin-top: 20px;
+      padding: 24px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      background-size: 200% 200%;
+      animation: gradientShift 8s ease infinite;
+      color: #fff;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 10px 40px rgba(37, 99, 235, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+      position: relative;
+      overflow: hidden;
+    }
+    .ai-analysis::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      right: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%);
+      animation: aiGlow 10s ease-in-out infinite;
+    }
+    @keyframes aiGlow {
+      0%, 100% { transform: translate(0, 0) rotate(0deg); }
+      50% { transform: translate(-10%, -10%) rotate(45deg); }
+    }
+    .ai-analysis-header {
       display: flex;
       align-items: center;
-      justify-content: center;
+      gap: 12px;
+      margin-bottom: 18px;
+      font-weight: 800;
+      font-size: 1.2rem;
+      position: relative;
+      z-index: 1;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+    .ai-analysis-header i {
+      font-size: 1.4rem;
+      animation: sparkle 3s ease-in-out infinite;
+    }
+    @keyframes sparkle {
+      0%, 100% { transform: rotate(0deg) scale(1); opacity: 1; }
+      50% { transform: rotate(180deg) scale(1.1); opacity: 0.8; }
+    }
+    .ai-key-points {
+      margin: 14px 0;
+      position: relative;
+      z-index: 1;
+    }
+    .ai-key-points ul {
+      margin: 10px 0 0 20px;
+      padding: 0;
+      list-style-type: none;
+    }
+    .ai-key-points li {
+      margin-bottom: 10px;
+      line-height: 1.5;
+      padding-left: 24px;
+      position: relative;
+    }
+    .ai-key-points li::before {
+      content: '✦';
+      position: absolute;
+      left: 0;
+      color: rgba(255,255,255,0.9);
+      font-size: 1.1rem;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    .ai-insights {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(255, 255, 255, 0.3);
+      font-size: 0.95rem;
+      line-height: 1.5;
+      position: relative;
+      z-index: 1;
+    }
+    .content-section { margin-bottom: 20px; }
+    .content-section h4 { color: var(--primary); font-size: 1rem; margin: 0 0 10px 0; font-weight: 600; }
+    footer { margin: 28px 0 20px; padding-bottom: 20px; color: var(--muted); text-align: center; font-size: .9rem; background: transparent; }
+    .loading { position: fixed; left: 0; top: 0; width: 100%; height: 100%; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,.28); z-index: 1000; backdrop-filter: saturate(130%) blur(2px); }
+    .loading-card { background: var(--card); border: 1px solid var(--ring); border-radius: 12px; padding: 18px; min-width: 260px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+    .spin { width: 36px; height: 36px; border-radius: 50%; border: 4px solid rgba(0,0,0,.08); border-left-color: var(--primary); animation: spin .9s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .pagi { display: flex; gap: 6px; align-items: center; justify-content: center; margin-top: 10px; flex-wrap: wrap; }
+    .pbtn { border: 1px solid var(--ring); background: var(--card); border-radius: 10px; padding: 8px 10px; cursor: pointer; min-width: 38px; text-align: center; transition: .2s; }
+    .pbtn:hover { border-color: var(--primary); color: var(--primary); }
+    .pbtn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .pbtn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .pill { font-size: .82rem; padding: 8px 10px; border: 1px solid var(--ring); border-radius: 999px; background: transparent; color: var(--text); }
+    .toasts { position: fixed; top: 20px; right: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 1200; max-height: 80vh; overflow-y: auto; }
+    .toast { background: var(--toast-bg); color: var(--toast-fg); border: 1px solid var(--toast-ring); border-radius: 14px; box-shadow: var(--shadow-soft); padding: 12px 16px; display: flex; align-items: center; gap: 12px; min-width: 300px; max-width: 400px; font-size: .95rem; animation: slide-in .3s ease forwards; position: relative; }
+    .toast.good { border-color: var(--toast-good); }
+    .toast.bad { border-color: var(--toast-bad); }
+    .toast.info { border-color: var(--toast-info); }
+    .toast .icon { width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+    .toast.good .icon { background: var(--toast-good); color: #fff; }
+    .toast.bad .icon { background: var(--toast-bad); color: #fff; }
+    .toast.info .icon { background: var(--toast-info); color: #fff; }
+    .toast .close-btn { margin-left: auto; background: transparent; border: none; color: var(--toast-fg); font-size: 1rem; cursor: pointer; opacity: 0.7; transition: opacity .2s; }
+    .toast .close-btn:hover { opacity: 1; }
+    @keyframes slide-in { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes slide-out { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(10px); } }
+    @keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
+    canvas { background: transparent; height: 100% !important; width: 100% !important; }
+    .tabs { display: flex; gap: 2px; margin-bottom: 16px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 8px; }
+    .tab { padding: 10px 16px; cursor: pointer; border-radius: 8px 8px 0 0; transition: .2s; color: var(--text); }
+    .tab.active { background: var(--primary); color: #fff; }
+    .tab:hover:not(.active) { background: var(--hover); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .feeds-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; }
+    .refresh-controls { display: flex; gap: 10px; align-items: center; }
+    .refresh-timer { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid var(--ring); border-radius: 999px; font-size: .85rem; color: var(--muted); }
+    .refresh-timer select { background: transparent; border: none; color: var(--text); cursor: pointer; outline: none; font-weight: 600; }
+    .feeds-list { margin-top: 16px; width: 100%; }
+    .feed-item { display: flex; align-items: center; justify-content: space-between; padding: 12px; border-bottom: 1px solid var(--border-subtle); transition: .2s; }
+    .feed-item:hover { background: var(--hover); }
+    .feed-title { font-weight: 600; color: var(--text); }
+    .feed-url { font-size: .85rem; color: var(--muted); margin-top: 4px; overflow: hidden; text-overflow: ellipsis; max-width: 450px; }
+    .feed-details { flex: 1; }
+    .feed-actions { display: flex; gap: 8px; }
+    .feed-status { padding: 4px 8px; border-radius: 999px; font-size: 1rem; font-weight: 600; }
+    .feed-status.ok { background: var(--badge-pos-bg); color: var(--badge-pos); }
+    .feed-status.error { background: var(--badge-neg-bg); color: var(--badge-neg); }
+    .feed-date { font-size: .8rem; color: var(--muted); }
+    .switch { position: relative; display: inline-block; width: 50px; height: 24px; margin-left: 8px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--toggle-bg); transition: .4s; border-radius: 34px; }
+    .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 4px; background-color: #fff; transition: .4s; border-radius: 50%; }
+    input:checked + .slider { background-color: var(--primary); }
+    input:checked + .slider:before { transform: translateX(26px); }
+    .new-content { position: relative; }
+    .new-content::after { content: ""; position: absolute; top: 0; right: 0; width: 8px; height: 8px; background: var(--badge-pos); border-radius: 50%; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+
+    /* Smooth scrollbar for list */
+    .listWrap .list::-webkit-scrollbar {
+        width: 8px;
     }
 
-    .icon-btn:hover {
-      background: var(--primary);
-      color: white;
+    .listWrap .list::-webkit-scrollbar-track {
+        background: var(--ring);
+        border-radius: 4px;
     }
 
-    .icon-btn.delete:hover {
-      background: var(--negative);
+    .listWrap .list::-webkit-scrollbar-thumb {
+        background: var(--primary);
+        border-radius: 4px;
     }
 
-    /* Loading & Empty States */
-    .loading {
-      text-align: center;
-      padding: 4rem;
-      color: var(--gray-400);
+    .listWrap .list::-webkit-scrollbar-thumb:hover {
+        background: var(--secondary);
     }
 
-    .spinner {
-      width: 48px;
-      height: 48px;
-      border: 4px solid var(--gray-200);
-      border-top-color: var(--primary);
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-      margin: 0 auto 1rem;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    .empty-state {
-      text-align: center;
-      padding: 4rem 2rem;
-      background: white;
-      border-radius: 16px;
-      box-shadow: var(--shadow);
-    }
-
-    .empty-state i {
-      font-size: 4rem;
-      color: var(--gray-300);
-      margin-bottom: 1.5rem;
-      display: block;
-    }
-
-    .empty-state h3 {
-      font-size: 1.5rem;
-      font-weight: 700;
-      margin-bottom: 0.5rem;
-      color: var(--dark);
-    }
-
-    .empty-state p {
-      color: var(--gray-600);
-      margin-bottom: 2rem;
-    }
-
-    /* Toast Notifications */
-    .toasts {
-      position: fixed;
-      top: 2rem;
-      right: 2rem;
-      z-index: 10000;
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-      max-width: 400px;
-    }
-
-    .toast {
-      background: white;
-      padding: 1rem 1.5rem;
-      border-radius: 8px;
-      box-shadow: var(--shadow-xl);
-      border-left: 4px solid var(--primary);
-      animation: slideIn 0.3s ease-out;
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-    }
-
-    @keyframes slideIn {
-      from {
-        transform: translateX(400px);
-        opacity: 0;
-      }
-      to {
-        transform: translateX(0);
-        opacity: 1;
-      }
-    }
-
-    .toast.success { border-left-color: var(--positive); }
-    .toast.error { border-left-color: var(--negative); }
-
-    .toast-icon {
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.75rem;
-    }
-
-    .toast.success .toast-icon {
-      background: var(--positive);
-      color: white;
-    }
-
-    .toast.error .toast-icon {
-      background: var(--negative);
-      color: white;
-    }
-
-    /* Responsive */
-    @media (max-width: 1024px) {
-      .news-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .header-content {
-        flex-direction: column;
-        gap: 1rem;
-      }
-
-      .search-box input {
-        width: 100%;
-      }
-
-      .stats-bar {
-        grid-template-columns: repeat(2, 1fr);
-      }
+    @media (max-width: 900px) {
+      :root { --topRowH: 380px; }
+      .dashboard { grid-template-columns: 1fr; grid-template-rows: var(--topRowH) var(--topRowH) auto; grid-template-areas: "cards" "chart" "list"; }
+      .feed-item { flex-direction: column; align-items: flex-start; gap: 10px; }
+      .feed-actions { margin-top: 8px; }
+      .stat-value { font-size: 2rem; }
+      .listWrap { height: 60vh; }
     }
 
     @media (max-width: 768px) {
-      .container {
-        padding: 1rem;
-      }
+      /* Mobile optimizations */
+      .container { padding: 12px; margin: 12px auto; }
+      header { padding: 16px; border-radius: 24px; }
+      header h1 { font-size: 1.1rem; }
+      .subtitle { font-size: .85rem; }
 
-      .top-nav-left {
-        flex-direction: column;
-        gap: 0.5rem;
-        align-items: flex-start;
-      }
+      /* Hero section mobile */
+      .hero-section { padding: 24px 16px !important; }
+      .hero-section h2 { font-size: 1.4rem !important; }
+      .hero-section p { font-size: .9rem !important; }
 
-      .stats-bar {
-        grid-template-columns: 1fr;
-      }
+      /* Stats grid - stack on mobile */
+      .dashboard-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 12px !important; }
+      .stat { padding: 14px; }
+      .stat-label { font-size: .75rem; }
+      .stat-value { font-size: 2rem !important; }
+      .stat p { font-size: .7rem; }
 
-      .stat-item {
-        border-right: none;
-        border-bottom: 1px solid var(--gray-200);
-      }
+      /* Action bar mobile */
+      .input { font-size: .9rem !important; padding: 10px 12px !important; }
+      #search { min-width: 100% !important; margin-bottom: 8px; }
 
-      .stat-item:last-child {
-        border-bottom: none;
-      }
+      /* Buttons smaller on mobile */
+      .btn { padding: 8px 12px; font-size: .85rem; }
+      .filter-btn { padding: 6px 10px; font-size: .8rem; }
+      .sort-btn { padding: 6px 10px; font-size: .8rem; }
 
-      .filter-bar {
-        flex-direction: column;
-        align-items: stretch;
-      }
+      /* Hide button text, show icons only on small screens */
+      .filter-btn span, .sort-btn span { display: none; }
 
-      .article-image {
-        height: 250px;
-      }
+      /* Chart mini preview - hide on very small screens */
+      .panel.chartBox[style*="width:auto"] { display: none !important; }
 
-      .article-title {
-        font-size: 1.5rem;
-      }
+      /* Selection counter */
+      #selectionCounter { flex-direction: column; gap: 4px; padding: 8px; }
+      #selectionCounter .btn { padding: 4px 8px; font-size: .75rem; }
 
-      .nav-tabs-content {
-        overflow-x: auto;
-        white-space: nowrap;
-      }
+      /* Toast notifications smaller */
+      .toast { min-width: 280px; max-width: calc(100vw - 32px); font-size: .85rem; }
+
+      /* Tabs */
+      .tabs { gap: 4px; }
+      .tab { padding: 8px 12px; font-size: .85rem; }
+
+      /* Panel padding */
+      .panel { padding: 12px; border-radius: 12px; }
     }
 
-    .hidden { display: none !important; }
+    @media (max-width: 480px) {
+      /* Very small phones */
+      .dashboard-grid { grid-template-columns: 1fr !important; }
+      .stat-value { font-size: 1.8rem !important; }
+
+      /* Hero even more compact */
+      .hero-section h2 { font-size: 1.2rem !important; }
+      .hero-section p { font-size: .85rem !important; margin-bottom: 16px !important; }
+
+      /* Stack input and button */
+      .hero-section > div > div:first-child { flex-direction: column; }
+      #emailUrl { width: 100%; }
+      #ingestBtn { width: 100%; justify-content: center; }
+
+      /* Action bar full width */
+      .filters { width: 100%; justify-content: space-between; }
+      .filter-btn { flex: 1; }
+
+      /* Font sizes */
+      h2 { font-size: 1.2rem; }
+      h3 { font-size: 1.1rem; }
+
+      /* Item list more compact */
+      .item { padding: 10px; gap: 8px; }
+      .icon { width: 36px; height: 36px; }
+    }
   </style>
 </head>
-<body>
-  <!-- Top Navigation -->
-  <div class="top-nav">
-    <div class="top-nav-content">
-      <div class="top-nav-left">
-        <span class="live-badge"><i class="fa-solid fa-circle"></i> LIVE</span>
-        <span class="top-nav-date" id="currentDate"></span>
-        <span id="connectionStatus" style="color: var(--positive);"><i class="fa-solid fa-wifi"></i> Connected</span>
-      </div>
-      <div>
-        <i class="fa-solid fa-clock"></i> Last updated: <span id="lastUpdate">Just now</span>
-      </div>
+<body class="dark">
+  <!-- Animated particle background -->
+  <canvas id="particles"></canvas>
+
+  <!-- Loading overlay -->
+  <div class="loading" id="loading" role="status" aria-live="polite">
+    <div class="loading-card">
+      <div class="spin" aria-hidden="true"></div>
+      <div id="loadingText">Processing…</div>
     </div>
   </div>
 
-  <!-- Main Header -->
-  <header class="main-header">
-    <div class="header-content">
-      <a href="/" class="logo">
-        <div class="logo-icon">
-          <i class="fa-solid fa-plane-up"></i>
-        </div>
-        <div class="logo-text">
-          <h1>AviationHub</h1>
-          <p>Global Aviation Intelligence</p>
-        </div>
-      </a>
+  <!-- Toasts -->
+  <div class="toasts" id="toasts" aria-live="polite"></div>
 
-      <div class="header-actions">
-        <div class="search-box">
-          <i class="fa-solid fa-magnifying-glass"></i>
-          <input type="text" id="globalSearch" placeholder="Search articles, feeds, topics...">
-        </div>
-        <button class="btn btn-primary" id="btnAISummary">
-          <i class="fa-solid fa-sparkles"></i> AI Summary
-        </button>
-      </div>
-    </div>
-  </header>
-
-  <!-- Navigation Tabs -->
-  <nav class="nav-tabs">
-    <div class="nav-tabs-content">
-      <button class="nav-tab active" data-tab="news"><i class="fa-solid fa-newspaper"></i> News Feed</button>
-      <button class="nav-tab" data-tab="feeds"><i class="fa-solid fa-rss"></i> Manage Feeds</button>
-      <button class="nav-tab" data-tab="analytics"><i class="fa-solid fa-chart-line"></i> Analytics</button>
-    </div>
-  </nav>
-
-  <!-- Main Container -->
   <div class="container">
-    <!-- News Tab -->
-    <div id="tab-news" class="tab-content">
-      <!-- Stats Bar -->
-      <div class="stats-bar">
-        <div class="stat-item">
-          <div class="stat-value stat-primary" id="statTotal">0</div>
-          <div class="stat-label">Total Articles</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-value stat-positive" id="statPositive">0</div>
-          <div class="stat-label">Positive</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-value stat-neutral" id="statNeutral">0</div>
-          <div class="stat-label">Neutral</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-value stat-negative" id="statNegative">0</div>
-          <div class="stat-label">Negative</div>
-        </div>
+    <header>
+      <div>
+        <h1>Aviation Intelligence Hub</h1>
+        <div class="subtitle">Realtime aviation news aggregation with AI analysis</div>
       </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <div class="pill" id="connectionStatus">
+          <i class="fa-solid fa-circle-dot" style="color:#9ca3af"></i>
+          <span>Disconnected</span>
+        </div>
+        <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme"><i class="fa-solid fa-sun"></i>&nbsp;Light</button>
+      </div>
+    </header>
 
-      <!-- Filter Bar -->
-      <div class="filter-bar">
-        <div class="filter-group">
-          <button class="filter-btn active" data-filter="all">
-            <i class="fa-solid fa-list"></i> All
-          </button>
-          <button class="filter-btn" data-filter="positive">
-            <i class="fa-solid fa-face-smile"></i> Positive
-          </button>
-          <button class="filter-btn" data-filter="neutral">
-            <i class="fa-solid fa-face-meh"></i> Neutral
-          </button>
-          <button class="filter-btn" data-filter="negative">
-            <i class="fa-solid fa-face-frown"></i> Negative
-          </button>
-        </div>
-        <div class="filter-group">
-          <button class="btn btn-outline" id="btnRefresh">
-            <i class="fa-solid fa-arrows-rotate"></i> Refresh All
-          </button>
-          <button class="btn btn-outline" id="btnExport">
-            <i class="fa-solid fa-download"></i> Export
-          </button>
-        </div>
-      </div>
-
-      <!-- News Content -->
-      <div id="newsContent">
-        <div class="loading">
-          <div class="spinner"></div>
-          <p>Loading aviation news...</p>
-        </div>
-      </div>
+    <!-- Tabs -->
+    <div class="tabs">
+      <div class="tab active" data-tab="dashboard">Dashboard</div>
+      <div class="tab" data-tab="feeds">Feed Management</div>
+      <div class="tab" data-tab="settings">Settings</div>
     </div>
 
-    <!-- Feeds Tab -->
-    <div id="tab-feeds" class="tab-content hidden">
-      <div class="feed-section">
-        <div class="section-header">
-          <h2 class="section-title"><i class="fa-solid fa-rss"></i> RSS Feed Management</h2>
-          <button class="btn btn-primary" id="btnRefreshFeeds">
-            <i class="fa-solid fa-arrows-rotate"></i> Refresh All Feeds
-          </button>
-        </div>
+    <!-- Dashboard -->
+    <div class="tab-content active" id="dashboard-tab">
+      <!-- Hero / Quick Start Section -->
+      <section class="panel hero-section" style="text-align:center;padding:32px;margin-bottom:20px">
+        <h2 style="margin:0 0 8px 0;font-size:1.8rem;font-weight:800">
+          <i class="fa-solid fa-plane-up" style="color:var(--primary)"></i>
+          Welcome to Aviation Intelligence Hub
+        </h2>
+        <p style="color:var(--muted);font-size:1rem;margin:0 0 24px 0;max-width:600px;margin-left:auto;margin-right:auto">
+          Track aviation news from RSS feeds with AI-powered sentiment analysis and summaries
+        </p>
 
-        <div class="feed-input-group">
-          <input type="text" id="feedName" class="feed-input" placeholder="Feed Name (e.g., FAA News)">
-          <input type="url" id="feedUrl" class="feed-input" placeholder="RSS Feed URL">
-          <button class="btn btn-primary" id="btnAddFeed">
-            <i class="fa-solid fa-plus"></i> Add Feed
-          </button>
-        </div>
-
-        <div class="feed-list" id="feedList">
-          <div class="loading">
-            <div class="spinner"></div>
-            <p>Loading feeds...</p>
+        <!-- Primary Action -->
+        <div style="max-width:700px;margin:0 auto">
+          <div style="display:flex;gap:10px;margin-bottom:12px">
+            <input
+              id="emailUrl"
+              class="input"
+              style="font-size:1rem;padding:14px 18px"
+              placeholder="🔗 Paste RSS feed URL here (e.g., https://example.com/feed)"
+              value="https://www.airlinereporter.com/feed/"
+              aria-label="Enter RSS feed URL">
+            <button id="ingestBtn" class="btn btn-primary" style="padding:14px 28px;font-size:1rem;white-space:nowrap" aria-label="Add feed">
+              <i class="fa-solid fa-plus-circle"></i>&nbsp;Add Feed
+            </button>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:center;gap:20px;flex-wrap:wrap">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.9rem;color:var(--muted)">
+              <input type="checkbox" id="autoAddFeed" checked style="width:18px;height:18px;accent-color:var(--primary);cursor:pointer">
+              <span>Automatically save this feed</span>
+            </label>
+            <a href="#" onclick="showQuickTips();return false" style="color:var(--primary);font-size:.9rem;text-decoration:none">
+              <i class="fa-solid fa-circle-question"></i> Need help?
+            </a>
           </div>
         </div>
-      </div>
-    </div>
+      </section>
 
-    <!-- Analytics Tab -->
-    <div id="tab-analytics" class="tab-content hidden">
-      <div class="feed-section">
-        <div class="section-header">
-          <h2 class="section-title"><i class="fa-solid fa-chart-line"></i> Analytics Dashboard</h2>
+      <!-- Stats Overview -->
+      <section class="dashboard-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:16px;margin-bottom:20px">
+        <div class="stat" id="statTotalCard" title="Total news items in your database">
+          <div class="stat-label"><i class="fa-solid fa-newspaper"></i> Total Articles</div>
+          <h3 class="stat-value" id="statTotal">0</h3>
+          <p style="font-size:.8rem;color:var(--muted);margin:4px 0 0 0">News items tracked</p>
         </div>
-        <p style="text-align: center; padding: 4rem; color: var(--gray-500);">
-          <i class="fa-solid fa-chart-pie" style="font-size: 3rem; display: block; margin-bottom: 1rem; opacity: 0.3;"></i>
-          Analytics dashboard coming soon...
-        </p>
-      </div>
-    </div>
-  </div>
+        <div class="stat" id="statPosCard" title="Articles with positive sentiment">
+          <div class="stat-label"><i class="fa-solid fa-face-smile"></i> Positive</div>
+          <h3 class="stat-value" id="statPos">0</h3>
+          <div class="stat-trend" id="posTrend"></div>
+        </div>
+        <div class="stat" id="statNeuCard" title="Articles with neutral sentiment">
+          <div class="stat-label"><i class="fa-solid fa-face-meh"></i> Neutral</div>
+          <h3 class="stat-value" id="statNeu">0</h3>
+          <div class="stat-trend" id="neuTrend"></div>
+        </div>
+        <div class="stat" id="statNegCard" title="Articles with negative sentiment">
+          <div class="stat-label"><i class="fa-solid fa-face-frown"></i> Negative</div>
+          <h3 class="stat-value" id="statNeg">0</h3>
+          <div class="stat-trend" id="negTrend"></div>
+        </div>
+      </section>
 
-  <!-- Toast Container -->
-  <div class="toasts" id="toasts"></div>
+      <!-- News Feed Section -->
+      <section class="panel" style="margin-bottom:20px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+          <h3 style="margin:0;font-size:1.3rem">
+            <i class="fa-solid fa-list"></i> Your News Feed
+          </h3>
+          <div class="panel chartBox" style="width:auto;padding:12px;margin:0;display:inline-flex;align-items:center;gap:8px">
+            <canvas id="chart" style="width:100px!important;height:100px!important"></canvas>
+            <div id="lastUpdated" style="font-size:.75rem;color:var(--muted)"></div>
+          </div>
+        </div>
+
+        <!-- Action Bar -->
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px;padding:12px;background:var(--hover);border-radius:12px">
+          <input class="input" id="search" placeholder="🔍 Search articles..." aria-label="Search news items" style="flex:1;min-width:200px">
+
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="filter-btn active" data-filter="all" title="Show all articles">
+              <i class="fa-solid fa-border-all"></i><span>&nbsp;All</span>
+            </button>
+            <button class="filter-btn" data-filter="positive" title="Show positive articles">
+              <i class="fa-solid fa-thumbs-up"></i><span>&nbsp;Positive</span>
+            </button>
+            <button class="filter-btn" data-filter="neutral" title="Show neutral articles">
+              <i class="fa-solid fa-minus"></i><span>&nbsp;Neutral</span>
+            </button>
+            <button class="filter-btn" data-filter="negative" title="Show negative articles">
+              <i class="fa-solid fa-thumbs-down"></i><span>&nbsp;Negative</span>
+            </button>
+          </div>
+
+          <div style="border-left:1px solid var(--ring);padding-left:10px;display:flex;gap:6px;flex-wrap:wrap">
+            <button id="summPageBtn" class="btn btn-primary" title="Generate AI summaries for all visible articles" style="font-size:.9rem">
+              <i class="fa-solid fa-wand-magic-sparkles"></i> Summarize Visible
+            </button>
+            <button id="selectAllBtn" class="btn btn-outline" title="Select all items on page" style="font-size:.9rem">
+              <i class="fa-regular fa-square-check"></i>
+            </button>
+            <button id="exportBtn" class="btn btn-outline" title="Export as CSV" style="font-size:.9rem">
+              <i class="fa-solid fa-download"></i>
+            </button>
+          </div>
+
+          <span class="pill" id="selectionCounter" style="display:none">
+            <strong id="selCount">0</strong> selected
+            <button id="summBtn" class="btn btn-primary" title="Summarize selected" style="font-size:.85rem;padding:6px 12px;margin-left:8px">
+              <i class="fa-solid fa-wand-magic-sparkles"></i> Summarize
+            </button>
+            <button id="clearSelBtn" style="background:none;border:none;color:var(--muted);cursor:pointer;margin-left:8px" title="Clear selection">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </span>
+        </div>
+
+        <!-- Sort Controls -->
+        <div style="display:flex;gap:8px;margin-bottom:12px;padding:0 4px;flex-wrap:wrap">
+          <span style="font-size:.85rem;color:var(--muted);display:flex;align-items:center">Sort by:</span>
+          <button class="sort-btn active" data-sort="date-desc">
+            <i class="fa-solid fa-clock"></i><span>&nbsp;Latest First</span>
+          </button>
+          <button class="sort-btn" data-sort="date-asc">
+            <i class="fa-solid fa-clock-rotate-left"></i><span>&nbsp;Oldest First</span>
+          </button>
+          <button class="sort-btn" data-sort="alpha-asc">
+            <i class="fa-solid fa-arrow-down-a-z"></i><span>&nbsp;A-Z</span>
+          </button>
+        </div>
+
+        <!-- News List Container -->
+        <div class="list" id="list" aria-live="polite" style="min-height:300px;max-height:600px;overflow-y:auto">
+          <!-- Empty state - shown when no news -->
+          <div id="emptyState" style="text-align:center;padding:60px 20px;display:none">
+            <i class="fa-solid fa-inbox" style="font-size:4rem;color:var(--muted);opacity:0.3;margin-bottom:16px"></i>
+            <h3 style="color:var(--muted);margin:0 0 8px 0">No news articles yet</h3>
+            <p style="color:var(--muted);font-size:.9rem;margin:0 0 20px 0">Add your first RSS feed above to get started!</p>
+            <button onclick="document.getElementById('emailUrl').focus()" class="btn btn-primary">
+              <i class="fa-solid fa-plus"></i> Add Your First Feed
+            </button>
+          </div>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagi" id="pagi" style="margin-top:16px"></div>
+      </section>
+    </div>
+
+    <!-- Feeds -->
+    <div class="tab-content" id="feeds-tab">
+      <section class="panel">
+        <div class="feeds-header">
+          <h3 style="margin:0">RSS/Atom Feed Management</h3>
+          <div class="refresh-controls">
+            <div class="refresh-timer">
+              <i class="fa-solid fa-clock"></i>
+              <span>Auto-refresh:</span>
+              <select id="refreshInterval" aria-label="Set auto-refresh interval">
+                <option value="0">Off</option>
+                <option value="5" selected>5 min</option>
+                <option value="15">15 min</option>
+                <option value="30">30 min</option>
+                <option value="60">1 hour</option>
+              </select>
+            </div>
+            <button id="refreshAllFeedsBtn" class="btn btn-primary" aria-label="Refresh all feeds">
+              <i class="fa-solid fa-rotate"></i> Refresh All Feeds
+            </button>
+          </div>
+        </div>
+        <div style="color:var(--muted);font-size:.92rem;margin-bottom:16px">
+          Manage your feeds. The system can auto-discover feeds from websites.
+        </div>
+        <div class="feeds-list" id="feedsList">
+          <div style="text-align:center;padding:20px;color:var(--muted)">
+            <i class="fa-solid fa-spinner fa-spin"></i> Loading feeds...
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Settings -->
+    <div class="tab-content" id="settings-tab">
+      <section class="panel">
+        <h3>Application Settings</h3>
+        <div style="margin-top:20px">
+          <h4>Display Settings</h4>
+          <div style="display:flex;align-items:center;margin-top:10px">
+            <span>Dark Mode</span>
+            <label class="switch"><input type="checkbox" id="darkModeToggle" checked aria-label="Toggle dark mode"><span class="slider"></span></label>
+          </div>
+          <div style="display:flex;align-items:center;margin-top:10px">
+            <span>Real-time Updates</span>
+            <label class="switch"><input type="checkbox" id="sseToggle" checked aria-label="Toggle real-time updates"><span class="slider"></span></label>
+          </div>
+        </div>
+        <div style="margin-top:30px">
+          <h4>Data Management</h4>
+          <div style="display:flex;gap:10px;margin-top:10px">
+            <button id="exportAllBtn" class="btn btn-outline" aria-label="Export all data"><i class="fa-solid fa-file-export"></i> Export All Data</button>
+            <button id="clearCacheBtn" class="btn btn-muted" aria-label="Clear local cache"><i class="fa-solid fa-broom"></i> Clear Local Cache</button>
+          </div>
+        </div>
+        <div style="margin-top:30px">
+          <h4>About</h4>
+          <div style="color:var(--muted);font-size:.92rem;line-height:1.5">
+            <p>Aviation Intelligence Hub v1.8.0</p>
+            <p>Real-time aviation news with AI summaries & sentiment. Powered by Cloudflare Workers AI and Flask.</p>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <footer>© Aviation Intelligence Hub</footer>
+  </div>
 
   <script>
-    // State
-    let newsData = [];
-    let feedsData = [];
-    let currentFilter = 'all';
-    let stats = {};
+    (function() {
+      const $ = s => document.querySelector(s);
+      const $$ = s => document.querySelectorAll(s);
 
-    // Initialize
-    document.addEventListener('DOMContentLoaded', function() {
-      initializeApp();
-    });
+      const listEl = $('#list');
+      const loadEl = $('#loading');
+      const loadTxt = $('#loadingText');
+      const pagiEl = $('#pagi');
+      const selCountEl = $('#selCount');
+      const toastsEl = $('#toasts');
+      const connStatus = $('#connectionStatus');
 
-    function initializeApp() {
-      // Set current date
-      const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-      document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US', dateOptions);
+      let newsCache = [];
+      let selectedIds = new Set();
+      let currentFilter = 'all';
+      let currentPage = 1;
+      let totalPages = 1;
+      let currentSearch = '';
+      let currentSort = 'date-desc';
+      let chart;
+      let es = null;
+      let esManualOff = false;
+      let openDetailId = null;
+      let refreshIntervalId = null;
 
-      // Tab switching
-      document.querySelectorAll('.nav-tab').forEach(tab => {
+      const pageSize = 50;
+      let lastUpdateTime = new Date();
+
+      /* =============== Tabs =============== */
+      $$('.tab').forEach(tab => {
         tab.addEventListener('click', function() {
-          const tabName = this.dataset.tab;
-          switchTab(tabName);
-        });
-      });
-
-      // Filter buttons
-      document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-          document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+          $$('.tab').forEach(t => t.classList.remove('active'));
+          $$('.tab-content').forEach(c => c.classList.remove('active'));
           this.classList.add('active');
-          currentFilter = this.dataset.filter;
-          renderNews();
+          $(`#${this.dataset.tab}-tab`).classList.add('active');
+          if (this.dataset.tab === 'feeds') {
+            loadFeeds();
+          } else {
+            maybeCloseFeedTimer();
+          }
         });
       });
 
-      // Action buttons
-      document.getElementById('btnRefresh').addEventListener('click', refreshAllFeeds);
-      document.getElementById('btnAISummary').addEventListener('click', generateAISummary);
-      document.getElementById('btnExport').addEventListener('click', exportData);
-      document.getElementById('btnAddFeed').addEventListener('click', addFeed);
-      document.getElementById('btnRefreshFeeds').addEventListener('click', refreshAllFeeds);
-
-      // Search
-      document.getElementById('globalSearch').addEventListener('input', debounce(handleSearch, 300));
-
-      // Load initial data
-      loadStats();
-      loadNews();
-      loadFeeds();
-
-      // Auto-refresh every 5 minutes
-      setInterval(loadNews, 300000);
-    }
-
-    function switchTab(tabName) {
-      document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
-
-      document.querySelector(`.nav-tab[data-tab="${tabName}"]`).classList.add('active');
-      document.getElementById(`tab-${tabName}`).classList.remove('hidden');
-
-      if (tabName === 'feeds') {
-        loadFeeds();
-      }
-    }
-
-    async function loadStats() {
-      try {
-        const response = await fetch('/api/stats');
-        stats = await response.json();
-
-        document.getElementById('statTotal').textContent = stats.total || 0;
-        document.getElementById('statPositive').textContent = stats.positive || 0;
-        document.getElementById('statNeutral').textContent = stats.neutral || 0;
-        document.getElementById('statNegative').textContent = stats.negative || 0;
-      } catch (error) {
-        console.error('Failed to load stats:', error);
-      }
-    }
-
-    async function loadNews() {
-      try {
-        const response = await fetch('/api/emails?per_page=50');
-        const data = await response.json();
-        newsData = data.news_items || [];
-        renderNews();
-        updateLastUpdate();
-      } catch (error) {
-        console.error('Failed to load news:', error);
-        showToast('Failed to load news', 'error');
-      }
-    }
-
-    function renderNews() {
-      const container = document.getElementById('newsContent');
-
-      let filteredNews = newsData;
-      if (currentFilter !== 'all') {
-        filteredNews = newsData.filter(item => item.sentiment_label.toLowerCase() === currentFilter);
-      }
-
-      if (filteredNews.length === 0) {
-        container.innerHTML = `
-          <div class="empty-state">
-            <i class="fa-solid fa-inbox"></i>
-            <h3>No articles found</h3>
-            <p>${currentFilter === 'all' ? 'Add some RSS feeds to get started!' : 'No articles match the selected filter.'}</p>
-            <button class="btn btn-primary" onclick="switchTab('feeds')">
-              <i class="fa-solid fa-rss"></i> Manage Feeds
-            </button>
-          </div>
+      /* =============== Toasts + Loading =============== */
+      function toast(msg, type = 'info', timeout = 3000) {
+        if (type === 'info') timeout = 3000;
+        else if (type === 'good' || type === 'bad') timeout = 5000;
+        const t = document.createElement('div');
+        t.className = `toast ${type}`;
+        t.setAttribute('role', 'alert');
+        t.innerHTML = `
+          <div class="icon"><i class="fa-solid fa-bell"></i></div>
+          <div style="flex:1">${msg}</div>
+          <button class="close-btn" aria-label="Close notification"><i class="fa-solid fa-times"></i></button>
         `;
-        return;
-      }
-
-      // Featured article (first one)
-      const featured = filteredNews[0];
-      const others = filteredNews.slice(1, 7);
-
-      container.innerHTML = `
-        <div class="news-grid">
-          <!-- Featured Article -->
-          <div class="featured-article" onclick="showArticleDetail(${featured.id})">
-            <div class="article-image">
-              <span class="article-badge badge-${featured.sentiment_label.toLowerCase()}">${featured.sentiment_label}</span>
-              <i class="fa-solid fa-newspaper"></i>
-            </div>
-            <div class="article-content">
-              <div class="article-meta">
-                <span><i class="fa-solid fa-building"></i> ${featured.airline || 'Unknown Source'}</span>
-                <span><i class="fa-solid fa-calendar"></i> ${formatDate(featured.date)}</span>
-              </div>
-              <h2 class="article-title">${escapeHtml(featured.subject || 'Untitled')}</h2>
-              <p class="article-excerpt">${escapeHtml(truncate(featured.content || '', 200))}</p>
-              <div class="article-footer">
-                <a href="#" class="read-more" onclick="event.preventDefault(); showArticleDetail(${featured.id})">
-                  Read Full Story <i class="fa-solid fa-arrow-right"></i>
-                </a>
-                <span style="font-size: 0.875rem; color: var(--gray-500);">
-                  ${(featured.content || '').split(' ').length} words
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Other Articles -->
-          <div class="article-list">
-            ${others.map(item => `
-              <div class="article-card ${item.sentiment_label.toLowerCase()}" onclick="showArticleDetail(${item.id})">
-                <div class="article-meta">
-                  <span><i class="fa-solid fa-building"></i> ${item.airline || 'Unknown'}</span>
-                  <span><i class="fa-solid fa-calendar"></i> ${formatDate(item.date)}</span>
-                </div>
-                <h3 class="card-title">${escapeHtml(item.subject || 'Untitled')}</h3>
-                <p class="card-excerpt">${escapeHtml(truncate(item.content || '', 120))}</p>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      `;
-    }
-
-    async function loadFeeds() {
-      try {
-        const response = await fetch('/api/feeds');
-        feedsData = await response.json();
-        renderFeeds();
-      } catch (error) {
-        console.error('Failed to load feeds:', error);
-      }
-    }
-
-    function renderFeeds() {
-      const container = document.getElementById('feedList');
-
-      if (feedsData.length === 0) {
-        container.innerHTML = `
-          <div class="empty-state">
-            <i class="fa-solid fa-rss"></i>
-            <h3>No feeds configured</h3>
-            <p>Add your first RSS feed above to start tracking aviation news!</p>
-          </div>
-        `;
-        return;
-      }
-
-      container.innerHTML = feedsData.map(feed => `
-        <div class="feed-item">
-          <div class="feed-info">
-            <div class="feed-name">${escapeHtml(feed.name || 'Unnamed Feed')}</div>
-            <div class="feed-url">${escapeHtml(feed.url)}</div>
-          </div>
-          <div class="feed-actions">
-            <button class="icon-btn" onclick="refreshFeed(${feed.id})" title="Refresh">
-              <i class="fa-solid fa-arrows-rotate"></i>
-            </button>
-            <button class="icon-btn delete" onclick="deleteFeed(${feed.id})" title="Delete">
-              <i class="fa-solid fa-trash"></i>
-            </button>
-          </div>
-        </div>
-      `).join('');
-    }
-
-    async function addFeed() {
-      const name = document.getElementById('feedName').value.trim();
-      const url = document.getElementById('feedUrl').value.trim();
-
-      if (!url) {
-        showToast('Please enter a feed URL', 'error');
-        return;
-      }
-
-      try {
-        const response = await fetch('/api/feeds', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, url })
+        toastsEl.appendChild(t);
+        setTimeout(() => {
+          t.style.animation = 'fade-out .3s ease forwards';
+          setTimeout(() => t.remove(), 300);
+        }, timeout);
+        t.querySelector('.close-btn').addEventListener('click', () => {
+          t.style.animation = 'fade-out .3s ease forwards';
+          setTimeout(() => t.remove(), 300);
         });
-
-        if (response.ok) {
-          showToast('Feed added successfully!', 'success');
-          document.getElementById('feedName').value = '';
-          document.getElementById('feedUrl').value = '';
-          loadFeeds();
-        } else {
-          const error = await response.json();
-          showToast(error.error || 'Failed to add feed', 'error');
+        if (toastsEl.children.length > 5) {
+          toastsEl.children[0].remove();
         }
-      } catch (error) {
-        showToast('Failed to add feed', 'error');
       }
-    }
 
-    async function deleteFeed(id) {
-      if (!confirm('Are you sure you want to delete this feed?')) return;
+      function showLoading(t = 'Processing…') {
+        loadTxt.textContent = t;
+        loadEl.style.display = 'flex';
+      }
+      function hideLoading() {
+        loadEl.style.display = 'none';
+      }
 
-      try {
-        const response = await fetch(`/api/feeds/${id}`, { method: 'DELETE' });
-        if (response.ok) {
-          showToast('Feed deleted', 'success');
-          loadFeeds();
+      /* =============== Theme =============== */
+      function fmtTextColor() {
+        return getComputedStyle(document.body).getPropertyValue('--text').trim() || '#e6eef9';
+      }
+      function prefersDark() {
+        return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      }
+      function setTheme(dark) {
+        document.body.classList.toggle('light', !dark);
+        $('#themeToggle').innerHTML = dark ? '<i class="fa-solid fa-sun"></i>&nbsp;Light' : '<i class="fa-solid fa-moon"></i>&nbsp;Dark';
+        $('#darkModeToggle').checked = dark;
+        localStorage.setItem('aih_dark', dark ? '1' : '0');
+        const c = fmtTextColor();
+        Chart.defaults.color = c;
+        if (chart) {
+          if (chart.options.plugins?.legend?.labels) {
+            chart.options.plugins.legend.labels.color = c;
+          }
+          if (chart.options.plugins?.tooltip) {
+            chart.options.plugins.tooltip.titleColor = c;
+            chart.options.plugins.tooltip.bodyColor = c;
+          }
+          chart.update();
+          chart.draw();
         }
-      } catch (error) {
-        showToast('Failed to delete feed', 'error');
       }
-    }
+      const storedTheme = localStorage.getItem('aih_dark');
+      setTheme(storedTheme ? storedTheme === '1' : prefersDark());
+      $('#themeToggle').addEventListener('click', () => setTheme(!(localStorage.getItem('aih_dark') === '1')));
+      $('#darkModeToggle').addEventListener('change', e => setTheme(e.target.checked));
 
-    async function refreshFeed(id) {
-      showToast('Refreshing feed...', 'success');
-      try {
-        const response = await fetch(`/api/feeds/${id}/refresh`, { method: 'POST' });
-        if (response.ok) {
-          showToast('Feed refreshed!', 'success');
-          loadNews();
-          loadStats();
+      /* =============== Chart =============== */
+      const CenterText = {
+        id: 'centerText',
+        afterDraw(chart) {
+          const meta = chart.getDatasetMeta(0);
+          if (!meta || !meta.data || !meta.data.length) return;
+          const { x, y } = meta.data[0];
+          const total = chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+          const ctx = chart.ctx;
+          ctx.save();
+          ctx.fillStyle = fmtTextColor();
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.font = '700 22px Inter, system-ui, sans-serif';
+          ctx.fillText(String(total), x, y - 6);
+          ctx.font = '600 12px Inter, system-ui, sans-serif';
+          ctx.globalAlpha = 0.9;
+          ctx.fillText('items', x, y + 14);
+          ctx.restore();
         }
-      } catch (error) {
-        showToast('Failed to refresh feed', 'error');
-      }
-    }
-
-    async function refreshAllFeeds() {
-      showToast('Refreshing all feeds...', 'success');
-      try {
-        const response = await fetch('/api/feeds/refresh-all', { method: 'POST' });
-        if (response.ok) {
-          showToast('All feeds refreshed!', 'success');
-          loadNews();
-          loadStats();
-        }
-      } catch (error) {
-        showToast('Failed to refresh feeds', 'error');
-      }
-    }
-
-    async function generateAISummary() {
-      showToast('Generating AI summaries...', 'success');
-      try {
-        const response = await fetch('/api/ai/summarize', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ limit: 10 })
-        });
-
-        if (response.ok) {
-          showToast('AI summaries generated!', 'success');
-          loadNews();
-        } else {
-          const error = await response.json();
-          showToast(error.error || 'AI summary failed', 'error');
-        }
-      } catch (error) {
-        showToast('AI summary failed', 'error');
-      }
-    }
-
-    function exportData() {
-      window.location.href = '/api/export?format=csv';
-      showToast('Downloading export...', 'success');
-    }
-
-    function handleSearch(e) {
-      const query = e.target.value.toLowerCase();
-      if (!query) {
-        renderNews();
-        return;
-      }
-
-      const filtered = newsData.filter(item =>
-        (item.subject || '').toLowerCase().includes(query) ||
-        (item.content || '').toLowerCase().includes(query) ||
-        (item.airline || '').toLowerCase().includes(query)
-      );
-
-      newsData = filtered;
-      renderNews();
-    }
-
-    function showArticleDetail(id) {
-      const article = newsData.find(a => a.id === id);
-      if (!article) return;
-
-      alert(`Article Detail:\n\n${article.subject}\n\n${article.content}`);
-      // TODO: Implement modal/detail view
-    }
-
-    function showToast(message, type = 'success') {
-      const toast = document.createElement('div');
-      toast.className = `toast ${type}`;
-      toast.innerHTML = `
-        <div class="toast-icon">
-          <i class="fa-solid fa-${type === 'success' ? 'check' : 'xmark'}"></i>
-        </div>
-        <div>${message}</div>
-      `;
-
-      document.getElementById('toasts').appendChild(toast);
-
-      setTimeout(() => {
-        toast.style.animation = 'slideIn 0.3s ease-out reverse';
-        setTimeout(() => toast.remove(), 300);
-      }, 3000);
-    }
-
-    function updateLastUpdate() {
-      document.getElementById('lastUpdate').textContent = 'Just now';
-    }
-
-    // Utilities
-    function formatDate(dateStr) {
-      if (!dateStr) return 'Unknown';
-      const date = new Date(dateStr);
-      const now = new Date();
-      const diff = now - date;
-
-      if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-      if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    }
-
-    function truncate(str, length) {
-      if (str.length <= length) return str;
-      return str.substring(0, length) + '...';
-    }
-
-    function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
-    }
-
-    function debounce(func, wait) {
-      let timeout;
-      return function executedFunction(...args) {
-        const later = () => {
-          clearTimeout(timeout);
-          func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
       };
-    }
+      function initChart() {
+        const ctx = $('#chart').getContext('2d');
+        Chart.defaults.color = fmtTextColor();
+        chart = new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: ['Positive (0)', 'Neutral (0)', 'Negative (0)'],
+            datasets: [{
+              data: [0, 0, 0],
+              backgroundColor: ['#10b981', '#6b7280', '#ef4444'],
+              borderWidth: 0,
+              hoverOffset: 10
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '68%',
+            plugins: {
+              legend: { position: 'bottom', labels: { color: fmtTextColor(), usePointStyle: true, pointStyle: 'circle' } },
+              tooltip: {
+                titleColor: fmtTextColor(),
+                bodyColor: fmtTextColor(),
+                callbacks: {
+                  label: c => {
+                    const v = c.parsed || 0;
+                    const tot = c.dataset.data.reduce((a, b) => a + b, 0);
+                    const pct = tot > 0 ? Math.round((v / tot) * 100) : 0;
+                    return `${c.label}: ${v} (${pct}%)`;
+                  }
+                }
+              }
+            }
+          },
+          plugins: [CenterText]
+        });
+        $('#lastUpdated').textContent = `Last updated: ${lastUpdateTime.toLocaleTimeString()}`;
+      }
+      function updateStats(stats) {
+        if (!stats) return;
+        $('#statTotal').textContent = stats.total || 0;
+        $('#statPos').textContent = stats.positive || 0;
+        $('#statNeu').textContent = stats.neutral || 0;
+        $('#statNeg').textContent = stats.negative || 0;
+        chart.data.datasets[0].data = [stats.positive || 0, stats.neutral || 0, stats.negative || 0];
+        chart.data.labels = [
+          `Positive (${stats.positive || 0})`,
+          `Neutral (${stats.neutral || 0})`,
+          `Negative (${stats.negative || 0})`
+        ];
+        chart.update();
+        if (stats.recent && stats.previous) {
+          const posDiff = (stats.recent.positive || 0) - (stats.previous.positive || 0);
+          const neuDiff = (stats.recent.neutral || 0) - (stats.previous.neutral || 0);
+          const negDiff = (stats.recent.negative || 0) - (stats.previous.negative || 0);
+          $('#posTrend').innerHTML = posDiff > 0 ? `<i class="fa-solid fa-arrow-up trend-up"></i> ${posDiff}`
+            : posDiff < 0 ? `<i class="fa-solid fa-arrow-down trend-down"></i> ${Math.abs(posDiff)}` : '';
+          $('#neuTrend').innerHTML = neuDiff > 0 ? `<i class="fa-solid fa-arrow-up"></i> ${neuDiff}`
+            : neuDiff < 0 ? `<i class="fa-solid fa-arrow-down"></i> ${Math.abs(neuDiff)}` : '';
+          $('#negTrend').innerHTML = negDiff > 0 ? `<i class="fa-solid fa-arrow-up trend-down"></i> ${negDiff}`
+            : negDiff < 0 ? `<i class="fa-solid fa-arrow-down trend-up"></i> ${Math.abs(negDiff)}` : '';
+        }
+      }
+
+      /* =============== List + Detail =============== */
+      function escapeHtml(s) {
+        return s ? String(s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m]) : '';
+      }
+      function removeOpenDetail() {
+        const open = $('.detail-row');
+        if (open) open.remove();
+        openDetailId = null;
+      }
+      function showDetail(id) {
+        const it = newsCache.find(x => String(x.id) === String(id));
+        if (!it) return;
+        if (openDetailId === String(id)) {
+          removeOpenDetail();
+          return;
+        }
+        removeOpenDetail();
+        openDetailId = String(id);
+        const row = $('#item-' + id);
+        if (!row) return;
+        const detail = document.createElement('div');
+        detail.className = 'detail-row';
+        const when = it.date ? `<time datetime="${escapeHtml(it.date)}">${escapeHtml(new Date(it.date).toLocaleString())}</time>` : '';
+        let sourceLink = '';
+        if (it.source) {
+          try {
+            const host = new URL(it.source).hostname.replace(/^www\./, '');
+            sourceLink = ` • <a href="${escapeHtml(it.source)}" target="_blank" rel="noopener noreferrer nofollow">${escapeHtml(host)}</a>`;
+          } catch {}
+        }
+        let sentiment = it.sentiment_label ? `<span class="badge ${it.sentiment_label}">${it.sentiment_label.toUpperCase()}</span>` : '';
+        let ai_html = '';
+        if (it.ai_summary) {
+          try {
+            const p = typeof it.ai_summary === 'string' ? JSON.parse(it.ai_summary) : it.ai_summary;
+            const headline = p.headline || p.takeaway || p.summary || '';
+            let kp = '';
+            if (Array.isArray(p.key_points) && p.key_points.length) {
+              kp = `<div class="ai-key-points"><ul>${p.key_points.slice(0, 5).map(x => `<li>${escapeHtml(String(x))}</li>`).join('')}</ul></div>`;
+            }
+            let insights = '';
+            if (p.entities && typeof p.entities === 'object') {
+              const ents = [];
+              for (const [key, values] of Object.entries(p.entities)) {
+                if (Array.isArray(values) && values.length) {
+                  ents.push(`<div class="content-section"><h4>${escapeHtml(key.charAt(0).toUpperCase() + key.slice(1))}:</h4>${values.map(v => `<span class="badge neutral">${escapeHtml(String(v))}</span>`).join(' ')}</div>`);
+                }
+              }
+              insights = `<div class="ai-insights">${ents.join('')}</div>`;
+            }
+            ai_html = `
+              <div class="ai-analysis">
+                <div class="ai-analysis-header"><i class="fa-solid fa-robot"></i><div>AI Analysis</div></div>
+                ${headline ? `<div class="ai-headline">${escapeHtml(headline)}</div>` : ''}
+                ${kp}
+                ${insights}
+              </div>`;
+          } catch (e) {
+            ai_html = `
+              <div class="ai-analysis">
+                <div class="ai-analysis-header"><i class="fa-solid fa-robot"></i><div>AI Analysis</div></div>
+                <div class="ai-headline">${escapeHtml(String(it.ai_summary))}</div>
+              </div>`;
+          }
+        }
+        detail.innerHTML = `
+          <div class="detail-content">
+            <div style="display:flex;gap:12px;align-items:flex-start">
+              <div class="icon"><i class="fa-solid fa-plane"></i></div>
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:800">${escapeHtml(it.airline || 'News')}</div>
+                <div style="color:var(--muted);margin-top:6px;font-size:.86rem">${when}${sourceLink} ${sentiment}</div>
+                <div class="content-section">
+                  <h4>Overview</h4>
+                  <div class="full-content">
+                    ${escapeHtml(it.content || '').replace(/\n/g, '<br>').split('. ').map(p => p.trim() + '.').join('<br>')}
+                  </div>
+                </div>
+                ${ai_html}
+                <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
+                  <button class="btn btn-primary" onclick="shareItem(${it.id})" aria-label="Share item"><i class="fa-solid fa-share"></i>&nbsp;Share</button>
+                  <button class="btn btn-outline" onclick="exportSingle(${it.id})" aria-label="Export item"><i class="fa-solid fa-file-export"></i>&nbsp;Export</button>
+                  <button class="btn btn-outline" onclick="requestSummary(${it.id})" aria-label="Request AI summary"><i class="fa-solid fa-wand-magic-sparkles"></i>&nbsp;Summarize</button>
+                </div>
+              </div>
+            </div>
+          </div>`;
+        row.insertAdjacentElement('afterend', detail);
+        detail.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      function applySort(items) {
+        const arr = items.slice();
+        if (currentSort === 'date-desc') {
+          arr.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+        } else if (currentSort === 'date-asc') {
+          arr.sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
+        } else if (currentSort === 'alpha-asc') {
+          arr.sort((a, b) => String(a.airline || '').localeCompare(String(b.airline || '')));
+        } else if (currentSort === 'alpha-desc') {
+          arr.sort((a, b) => String(b.airline || '').localeCompare(String(a.airline || '')));
+        }
+        return arr;
+      }
+      function render(items) {
+        let data = (items ?? newsCache);
+        if (currentFilter !== 'all') {
+          data = data.filter(it => it.sentiment_label === currentFilter);
+        }
+        data = applySort(data);
+
+        // Check empty state BEFORE clearing innerHTML
+        const emptyState = $('#emptyState');
+
+        if (newsCache.length === 0) {
+          // Show empty state, don't render items
+          if (emptyState) emptyState.style.display = 'block';
+          // Clear any existing items (but preserve emptyState)
+          Array.from(listEl.children).forEach(child => {
+            if (child.id !== 'emptyState') child.remove();
+          });
+          return;
+        } else {
+          // Hide empty state, will render items
+          if (emptyState) emptyState.style.display = 'none';
+        }
+
+        // Clear items (preserve emptyState)
+        Array.from(listEl.children).forEach(child => {
+          if (child.id !== 'emptyState') child.remove();
+        });
+
+        if (data.length === 0) {
+          listEl.insertAdjacentHTML('beforeend', '<div style="padding:40px;text-align:center"><i class="fa-solid fa-filter-circle-xmark" style="font-size:2.5rem;color:var(--muted);opacity:0.4;margin-bottom:12px;display:block"></i><div style="color:var(--muted)">No articles match your current filter</div><button onclick="document.querySelector(\'.filter-btn[data-filter=all]\').click()" class="btn btn-outline" style="margin-top:12px">Clear Filters</button></div>');
+          return;
+        }
+        for (const it of data) {
+          const row = document.createElement('div');
+          row.className = 'item';
+          row.id = `item-${it.id}`;
+          const head = document.createElement('div');
+          head.className = 'row-head';
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.className = 'check';
+          cb.checked = selectedIds.has(it.id);
+          cb.addEventListener('click', ev => {
+            ev.stopPropagation();
+            if (ev.currentTarget.checked) selectedIds.add(it.id);
+            else selectedIds.delete(it.id);
+            updateSelCount();
+          });
+          const icon = document.createElement('div');
+          icon.className = 'icon';
+          icon.innerHTML = '<i class="fa-solid fa-plane"></i>';
+          head.appendChild(cb);
+          head.appendChild(icon);
+          const body = document.createElement('div');
+          body.style.flex = '1';
+          const title = document.createElement('div');
+          title.style.fontWeight = '800';
+          title.textContent = it.airline || 'News';
+          const badge = document.createElement('span');
+          badge.className = `badge ${it.sentiment_label || 'neutral'}`;
+          badge.textContent = (it.sentiment_label || 'neutral').toUpperCase();
+          title.appendChild(badge);
+          const text = document.createElement('div');
+          text.style.marginTop = '6px';
+          let snippet = '';
+          let hasAi = false;
+          if (it.ai_summary) {
+            hasAi = true;
+            try {
+              const p = typeof it.ai_summary === 'string' ? JSON.parse(it.ai_summary) : it.ai_summary;
+              snippet = p?.summary || p?.headline || p?.takeaway || '';
+              if (!snippet && typeof it.ai_summary === 'string') snippet = it.ai_summary.slice(0, 400);
+            } catch (e) {
+              snippet = String(it.ai_summary).slice(0, 400);
+            }
+          }
+          if (snippet) {
+            text.innerHTML = `<strong style="color:var(--primary)"><i class="fa-solid fa-wand-magic-sparkles"></i> AI:</strong> ${snippet.length > 220 ? escapeHtml(snippet.slice(0, 220)) + '…' : escapeHtml(snippet)}`;
+          } else {
+            text.textContent = it.content ? (it.content.length > 220 ? it.content.slice(0, 220) + '…' : it.content) : '';
+          }
+          const meta = document.createElement('div');
+          meta.style.cssText = 'margin-top:6px;color:var(--muted);font-size:.86rem';
+          const when = it.date ? new Date(it.date).toLocaleString() : '';
+          meta.textContent = when + (it.source ? (' • ' + it.source) : '');
+          body.appendChild(title);
+          body.appendChild(text);
+          body.appendChild(meta);
+          row.appendChild(head);
+          row.appendChild(body);
+          row.addEventListener('click', () => showDetail(it.id));
+          if (hasAi) row.classList.add('new-content');
+          listEl.appendChild(row);
+        }
+      }
+      function updateSelCount() {
+        selCountEl.textContent = String(selectedIds.size);
+        // Show/hide selection counter
+        const counter = $('#selectionCounter');
+        if (selectedIds.size > 0) {
+          counter.style.display = 'inline-flex';
+        } else {
+          counter.style.display = 'none';
+        }
+      }
+
+      /* =============== Quick Tips =============== */
+      window.showQuickTips = function() {
+        const tips = `
+<div style="text-align:left;max-width:500px">
+  <h3 style="margin:0 0 16px 0;color:var(--primary)">
+    <i class="fa-solid fa-lightbulb"></i> Quick Start Guide
+  </h3>
+
+  <div style="margin-bottom:16px">
+    <h4 style="margin:0 0 8px 0;font-size:1rem"><i class="fa-solid fa-1"></i> Add a Feed</h4>
+    <p style="margin:0;color:var(--muted);font-size:.9rem">
+      Paste any RSS/Atom feed URL (like <code style="background:var(--hover);padding:2px 6px;border-radius:4px">https://example.com/feed</code>) and click "Add Feed"
+    </p>
+  </div>
+
+  <div style="margin-bottom:16px">
+    <h4 style="margin:0 0 8px 0;font-size:1rem"><i class="fa-solid fa-2"></i> View Sentiment</h4>
+    <p style="margin:0;color:var(--muted);font-size:.9rem">
+      Each article is automatically analyzed for sentiment (Positive, Neutral, or Negative)
+    </p>
+  </div>
+
+  <div style="margin-bottom:16px">
+    <h4 style="margin:0 0 8px 0;font-size:1rem"><i class="fa-solid fa-3"></i> Get AI Summaries</h4>
+    <p style="margin:0;color:var(--muted);font-size:.9rem">
+      Click "Summarize Visible" to generate AI-powered summaries for all articles on screen
+    </p>
+  </div>
+
+  <div style="margin-bottom:16px">
+    <h4 style="margin:0 0 8px 0;font-size:1rem"><i class="fa-solid fa-4"></i> Manage Feeds</h4>
+    <p style="margin:0;color:var(--muted);font-size:.9rem">
+      Go to "Feed Management" tab to auto-refresh feeds and manage your subscriptions
+    </p>
+  </div>
+
+  <div style="margin-top:20px;padding:12px;background:var(--hover);border-radius:8px;border-left:3px solid var(--primary)">
+    <strong style="color:var(--primary)">💡 Tip:</strong>
+    <span style="color:var(--muted);font-size:.9rem">Most aviation news sites have RSS feeds. Look for URLs ending in <code style="background:var(--card);padding:2px 4px;border-radius:3px">/feed</code> or <code style="background:var(--card);padding:2px 4px;border-radius:3px">/rss</code></span>
+  </div>
+</div>`;
+
+        toast(tips, 'info', 15000);
+      };
+
+      /* =============== SSE (EventSource) =============== */
+      function openSSE() {
+        if (es || esManualOff) return;
+        es = new EventSource('/api/ai/updates');
+        es.onopen = () => {
+          connStatus.innerHTML = '<i class="fa-solid fa-circle-dot" style="color:#22c55e"></i> Connected';
+          toast('Real-time connection established', 'good', 2200);
+        };
+        es.onerror = () => {
+          connStatus.innerHTML = '<i class="fa-solid fa-circle-dot" style="color:#ef4444"></i> Disconnected';
+        };
+        const relay = evtName => es.addEventListener(evtName, e => document.body.dispatchEvent(new CustomEvent(evtName, { detail: e.data })));
+        ['summary_updated', 'summary_batch_complete', 'ingest_complete', 'feed_refreshed', 'feed_error', 'connected', 'reload_page', 'toast'].forEach(relay);
+      }
+      function closeSSE() {
+        if (es) {
+          es.close();
+          es = null;
+        }
+        connStatus.innerHTML = '<i class="fa-solid fa-circle-dot" style="color:#9ca3af"></i> Disconnected';
+      }
+      openSSE();
+      document.body.addEventListener('summary_updated', evt => {
+        try {
+          const data = JSON.parse(evt.detail);
+          for (let i = 0; i < newsCache.length; i++) {
+            if (String(newsCache[i].id) === String(data.id)) {
+              newsCache[i].ai_summary = data.ai_summary;
+              if (openDetailId === String(data.id)) showDetail(data.id);
+              break;
+            }
+          }
+          lastUpdateTime = new Date();
+          $('#lastUpdated').textContent = `Last updated: ${lastUpdateTime.toLocaleTimeString()}`;
+          render(newsCache);
+        } catch (e) {
+          console.warn('bad SSE payload', e);
+        }
+      });
+      document.body.addEventListener('summary_batch_complete', evt => {
+        try {
+          const data = JSON.parse(evt.detail);
+          if (!toastsEl.querySelector('.toast.good')) {
+            toast(`AI summaries completed: ${data.updated} items updated`, 'good');
+          }
+          loadStats();
+        } catch {}
+      });
+      document.body.addEventListener('ingest_complete', e => {
+        try {
+          const d = JSON.parse(e.detail);
+          toast(`Successfully ingested ${d.news_items_count} items`, 'good');
+          loadStats();
+          loadPage(1);
+        } catch {}
+      });
+      document.body.addEventListener('feed_refreshed', () => {
+        if ($('#feeds-tab').classList.contains('active')) loadFeeds();
+      });
+      document.body.addEventListener('feed_error', e => {
+        try {
+          const d = JSON.parse(e.detail);
+          toast(`Feed refresh failed: ${d.error}`, 'bad');
+        } catch {}
+      });
+      document.body.addEventListener('reload_page', () => {
+        loadPage(currentPage);
+      });
+      document.body.addEventListener('toast', e => {
+        try {
+          const d = JSON.parse(e.detail);
+          toast(d.message, d.tone);
+        } catch {}
+      });
+
+      /* =============== Data Loading =============== */
+      async function loadStats() {
+        try {
+          const s = await fetch('/api/stats').then(r => r.json());
+          updateStats(s);
+        } catch (e) {
+          console.warn(e);
+        }
+      }
+      async function loadPage(page = 1) {
+        showLoading('Loading…');
+        currentPage = page;
+        const q = new URLSearchParams();
+        q.set('page', String(currentPage));
+        q.set('per_page', String(pageSize));
+        if (currentFilter !== 'all') q.set('filter', currentFilter);
+        if (currentSearch) q.set('search', currentSearch);
+        try {
+          const data = await fetch('/api/emails?' + q.toString()).then(r => r.json());
+          newsCache = data.news_items || [];
+          totalPages = Math.max(1, data.total_pages || 1);
+          const keepId = openDetailId;
+          render(newsCache);
+          renderPagi();
+          if (keepId) {
+            const exists = newsCache.some(it => String(it.id) === String(keepId));
+            if (exists) showDetail(keepId);
+            else removeOpenDetail();
+          }
+        } catch (e) {
+          console.error(e);
+          toast('Failed to load page', 'bad');
+        } finally {
+          hideLoading();
+        }
+      }
+      function renderPagi() {
+        pagiEl.innerHTML = '';
+        const mk = (label, page, disabled = false, active = false) => {
+          const b = document.createElement('button');
+          b.className = `pbtn ${active ? 'active' : ''} ${disabled ? 'disabled' : ''}`;
+          b.textContent = label;
+          b.disabled = disabled;
+          b.addEventListener('click', () => { if (!disabled) loadPage(page); });
+          return b;
+        };
+        pagiEl.appendChild(mk('«', Math.max(1, currentPage - 1), currentPage === 1));
+        const start = Math.max(1, currentPage - 3);
+        const end = Math.min(totalPages, start + 6);
+        for (let p = start; p <= end; p++) {
+          pagiEl.appendChild(mk(String(p), p, false, p === currentPage));
+        }
+        pagiEl.appendChild(mk('»', Math.min(totalPages, currentPage + 1), currentPage === totalPages));
+      }
+
+      /* =============== Feeds =============== */
+      async function loadFeeds() {
+        try {
+          const el = $('#feedsList');
+          el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)"><i class="fa-solid fa-spinner fa-spin"></i> Loading feeds...</div>';
+          const res = await fetch('/api/feeds').then(r => r.json());
+          if (!res.feeds || !res.feeds.length) {
+            el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">No feeds configured. Ingest a feed URL to add it.</div>';
+            return;
+          }
+          el.innerHTML = '';
+          for (const feed of res.feeds) {
+            const last = feed.last_fetch ? new Date(feed.last_fetch).toLocaleString() : 'Never';
+            const st = feed.status === 'ok' ? 'ok' : 'error';
+            const node = document.createElement('div');
+            node.className = 'feed-item';
+            node.innerHTML = `
+              <div class="feed-details">
+                <div class="feed-title">${escapeHtml(feed.title || 'Unnamed Feed')}</div>
+                <div class="feed-url">${escapeHtml(feed.url)}</div>
+                <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+                  <span class="feed-status ${st}">${feed.status || 'unknown'}</span>
+                  <span class="feed-date">Last fetch: ${last}</span>
+                </div>
+              </div>
+              <div class="feed-actions">
+                <button class="btn btn-outline refresh-feed-btn" data-id="${feed.id}" aria-label="Refresh feed"><i class="fa-solid fa-rotate"></i> Refresh</button>
+                <button class="btn btn-danger delete-feed-btn" data-id="${feed.id}" aria-label="Delete feed"><i class="fa-solid fa-trash"></i></button>
+              </div>`;
+            el.appendChild(node);
+          }
+          $$('.refresh-feed-btn').forEach(btn => {
+            btn.addEventListener('click', async e => {
+              const id = e.currentTarget.dataset.id;
+              showLoading('Refreshing feed…');
+              try {
+                await fetch(`/api/feeds/refresh?id=${id}`, { method: 'POST' });
+                toast('Feed refresh started', 'info');
+              } catch {
+                toast('Error refreshing feed', 'bad');
+              } finally {
+                hideLoading();
+              }
+            });
+          });
+          $$('.delete-feed-btn').forEach(btn => {
+            btn.addEventListener('click', async e => {
+              if (!confirm('Delete this feed?')) return;
+              const id = e.currentTarget.dataset.id;
+              showLoading('Deleting feed…');
+              try {
+                await fetch(`/api/feeds/${id}`, { method: 'DELETE' });
+                toast('Feed deleted', 'good');
+                loadFeeds();
+              } catch {
+                toast('Error deleting feed', 'bad');
+              } finally {
+                hideLoading();
+              }
+            });
+          });
+          ensureFeedTimer();
+        } catch (e) {
+          console.error(e);
+          $('#feedsList').innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">Error loading feeds.</div>';
+          toast('Failed to load feeds', 'bad');
+        }
+      }
+      function ensureFeedTimer() {
+        const mins = parseInt($('#refreshInterval').value, 10) || 0;
+        maybeCloseFeedTimer();
+        if (mins > 0) {
+          refreshIntervalId = setInterval(async () => {
+            try {
+              await fetch('/api/feeds/refresh', { method: 'POST' });
+            } catch {}
+            loadFeeds();
+          }, mins * 60 * 1000);
+        }
+      }
+      function maybeCloseFeedTimer() {
+        if (refreshIntervalId) {
+          clearInterval(refreshIntervalId);
+          refreshIntervalId = null;
+        }
+      }
+      $('#refreshInterval').addEventListener('change', ensureFeedTimer);
+      $('#refreshAllFeedsBtn').addEventListener('click', async () => {
+        showLoading('Refreshing all feeds…');
+        try {
+          await fetch('/api/feeds/refresh', { method: 'POST' });
+          toast('All feeds refresh started', 'info');
+        } catch {
+          toast('Error refreshing feeds', 'bad');
+        } finally {
+          hideLoading();
+        }
+      });
+
+      /* =============== Search / Filters / Sort / Export =============== */
+      $('#search').addEventListener('input', e => {
+        currentSearch = (e.target.value || '').trim();
+        loadPage(1);
+      });
+      $$('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', ev => {
+          $$('.filter-btn').forEach(b => b.classList.remove('active'));
+          ev.currentTarget.classList.add('active');
+          currentFilter = ev.currentTarget.getAttribute('data-filter') || 'all';
+          loadPage(1);
+        });
+      });
+      $$('.sort-btn').forEach(btn => {
+        btn.addEventListener('click', ev => {
+          $$('.sort-btn').forEach(b => b.classList.remove('active'));
+          ev.currentTarget.classList.add('active');
+          currentSort = ev.currentTarget.getAttribute('data-sort') || 'date-desc';
+          render(newsCache);
+        });
+      });
+      $('#exportBtn').addEventListener('click', () => {
+        const q = new URLSearchParams();
+        q.set('format', 'csv');
+        if (currentFilter !== 'all') q.set('filter', currentFilter);
+        window.location = '/api/export?' + q.toString();
+      });
+      $('#exportAllBtn').addEventListener('click', () => {
+        window.location = '/api/export?format=csv&include_summary=1';
+      });
+
+      /* =============== Selection / Cache / SSE toggle =============== */
+      $('#selectAllBtn').addEventListener('click', () => {
+        for (const it of newsCache) selectedIds.add(it.id);
+        updateSelCount();
+        render();
+      });
+      $('#clearSelBtn').addEventListener('click', () => {
+        selectedIds.clear();
+        updateSelCount();
+        render();
+      });
+      $('#clearCacheBtn').addEventListener('click', () => {
+        if (confirm('Clear all local browser storage?')) {
+          localStorage.clear();
+          toast('Local cache cleared', 'info');
+          setTimeout(() => window.location.reload(), 800);
+        }
+      });
+      $('#sseToggle').addEventListener('change', e => {
+        if (e.target.checked) {
+          esManualOff = false;
+          openSSE();
+        } else {
+          esManualOff = true;
+          closeSSE();
+        }
+      });
+
+      /* =============== Ingest & Summarize =============== */
+      $('#ingestBtn').addEventListener('click', () => {
+        const url = $('#emailUrl').value.trim();
+        if (!url) {
+          toast('Please enter a URL', 'bad');
+          return;
+        }
+        const auto = $('#autoAddFeed').checked ? 1 : 0;
+        showLoading('Ingesting content…');
+        fetch('/api/ingest', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url, auto_add_feed: auto })
+        })
+          .then(r => r.json())
+          .then(d => {
+            hideLoading();
+            if (d.status === 'ok') {
+              toast(`Successfully ingested ${d.news_items_count} items`, 'good');
+              loadStats();
+              loadPage(1);
+            } else if (d.status === 'not_modified') {
+              toast('No new items found (content not modified)', 'info');
+              loadStats();
+            } else {
+              toast(`Ingestion failed: ${d.error || d.status || 'Unknown error'}`, 'bad');
+            }
+          })
+          .catch(e => {
+            hideLoading();
+            toast('Request failed: ' + e, 'bad');
+          });
+      });
+      $('#summBtn').addEventListener('click', () => {
+        const ids = [...selectedIds];
+        if (ids.length === 0) return toast('Please select items to summarize', 'info');
+        showLoading('Processing AI summaries…');
+        fetch('/api/ai/summarize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode: 'selected_only', ids })
+        })
+          .then(r => r.json())
+          .then(d => {
+            hideLoading();
+          })
+          .catch(e => {
+            hideLoading();
+            toast('Request failed: ' + e, 'bad');
+          });
+      });
+      $('#summPageBtn').addEventListener('click', () => {
+        showLoading('Processing AI summaries…');
+        fetch('/api/ai/summarize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode: 'page' })
+        })
+          .then(r => r.json())
+          .then(d => {
+            hideLoading();
+          })
+          .catch(e => {
+            hideLoading();
+            toast('Request failed: ' + e, 'bad');
+          });
+      });
+
+      /* =============== Share/Export/Request =============== */
+      window.shareItem = async function(id) {
+        const it = newsCache.find(x => String(x.id) === String(id));
+        if (!it) return toast('Item not found', 'bad');
+        const shareText = `${it.airline || 'Aviation News'}\n\n${it.content || ''}${it.source ? '\n\nSource: ' + it.source : ''}`;
+        if (navigator.share) {
+          try {
+            await navigator.share({
+              title: it.airline || 'Aviation News',
+              text: shareText,
+              url: it.source || ''
+            });
+          } catch (e) {
+            if (navigator.clipboard) {
+              await navigator.clipboard.writeText(shareText);
+              toast('Content copied to clipboard', 'info');
+            }
+          }
+        } else {
+          if (navigator.clipboard) {
+            await navigator.clipboard.writeText(shareText);
+            toast('Content copied to clipboard', 'info');
+          } else {
+            toast('Sharing not supported on this device', 'info');
+          }
+        }
+      };
+      window.exportSingle = id => {
+        window.location = `/api/export?format=csv&single=${id}&include_summary=1`;
+      };
+      window.requestSummary = function(id) {
+        showLoading('Requesting AI analysis…');
+        fetch('/api/ai/summarize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode: 'selected_only', ids: [id] })
+        })
+          .then(r => r.json())
+          .then(d => {
+            hideLoading();
+            d.ok ? toast('AI analysis requested - results will appear shortly', 'info') : toast('Analysis request failed', 'bad');
+          })
+          .catch(e => {
+            hideLoading();
+            toast('Request failed: ' + e, 'bad');
+          });
+      };
+
+      /* =============== Animated Stat Counters =============== */
+      function animateValue(element, start, end, duration) {
+        const range = end - start;
+        const increment = range / (duration / 16);
+        let current = start;
+        const timer = setInterval(() => {
+          current += increment;
+          if ((increment > 0 && current >= end) || (increment < 0 && current <= end)) {
+            current = end;
+            clearInterval(timer);
+          }
+          element.textContent = Math.round(current);
+        }, 16);
+      }
+
+      // Override updateStats to include animation
+      const originalUpdateStats = updateStats;
+      updateStats = function(stats) {
+        if (!stats) return;
+
+        // Animate stat values
+        const currentTotal = parseInt($('#statTotal').textContent) || 0;
+        const currentPos = parseInt($('#statPos').textContent) || 0;
+        const currentNeu = parseInt($('#statNeu').textContent) || 0;
+        const currentNeg = parseInt($('#statNeg').textContent) || 0;
+
+        animateValue($('#statTotal'), currentTotal, stats.total || 0, 800);
+        animateValue($('#statPos'), currentPos, stats.positive || 0, 800);
+        animateValue($('#statNeu'), currentNeu, stats.neutral || 0, 800);
+        animateValue($('#statNeg'), currentNeg, stats.negative || 0, 800);
+
+        chart.data.datasets[0].data = [stats.positive || 0, stats.neutral || 0, stats.negative || 0];
+        chart.data.labels = [
+          `Positive (${stats.positive || 0})`,
+          `Neutral (${stats.neutral || 0})`,
+          `Negative (${stats.negative || 0})`
+        ];
+        chart.update();
+
+        if (stats.recent && stats.previous) {
+          const posDiff = (stats.recent.positive || 0) - (stats.previous.positive || 0);
+          const neuDiff = (stats.recent.neutral || 0) - (stats.previous.neutral || 0);
+          const negDiff = (stats.recent.negative || 0) - (stats.previous.negative || 0);
+          $('#posTrend').innerHTML = posDiff > 0 ? `<i class="fa-solid fa-arrow-up trend-up"></i> ${posDiff}`
+            : posDiff < 0 ? `<i class="fa-solid fa-arrow-down trend-down"></i> ${Math.abs(posDiff)}` : '';
+          $('#neuTrend').innerHTML = neuDiff > 0 ? `<i class="fa-solid fa-arrow-up"></i> ${neuDiff}`
+            : neuDiff < 0 ? `<i class="fa-solid fa-arrow-down"></i> ${Math.abs(neuDiff)}` : '';
+          $('#negTrend').innerHTML = negDiff > 0 ? `<i class="fa-solid fa-arrow-up trend-down"></i> ${negDiff}`
+            : negDiff < 0 ? `<i class="fa-solid fa-arrow-down trend-up"></i> ${Math.abs(negDiff)}` : '';
+        }
+      };
+
+      /* =============== Particle Animation =============== */
+      const particlesCanvas = $('#particles');
+      const ctx = particlesCanvas.getContext('2d');
+      let particles = [];
+
+      function resizeCanvas() {
+        particlesCanvas.width = window.innerWidth;
+        particlesCanvas.height = window.innerHeight;
+      }
+
+      class Particle {
+        constructor() {
+          this.x = Math.random() * particlesCanvas.width;
+          this.y = Math.random() * particlesCanvas.height;
+          this.vx = (Math.random() - 0.5) * 0.5;
+          this.vy = (Math.random() - 0.5) * 0.5;
+          this.radius = Math.random() * 2 + 0.5;
+          this.opacity = Math.random() * 0.5 + 0.2;
+        }
+
+        update() {
+          this.x += this.vx;
+          this.y += this.vy;
+
+          if (this.x < 0 || this.x > particlesCanvas.width) this.vx *= -1;
+          if (this.y < 0 || this.y > particlesCanvas.height) this.vy *= -1;
+        }
+
+        draw() {
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(37, 99, 235, ${this.opacity})`;
+          ctx.fill();
+        }
+      }
+
+      function initParticles() {
+        const particleCount = Math.min(50, Math.floor(window.innerWidth / 20));
+        particles = [];
+        for (let i = 0; i < particleCount; i++) {
+          particles.push(new Particle());
+        }
+      }
+
+      function animateParticles() {
+        ctx.clearRect(0, 0, particlesCanvas.width, particlesCanvas.height);
+
+        particles.forEach(particle => {
+          particle.update();
+          particle.draw();
+        });
+
+        // Draw connections
+        particles.forEach((p1, i) => {
+          particles.slice(i + 1).forEach(p2 => {
+            const dx = p1.x - p2.x;
+            const dy = p1.y - p2.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance < 120) {
+              ctx.beginPath();
+              ctx.moveTo(p1.x, p1.y);
+              ctx.lineTo(p2.x, p2.y);
+              ctx.strokeStyle = `rgba(37, 99, 235, ${0.15 * (1 - distance / 120)})`;
+              ctx.lineWidth = 0.5;
+              ctx.stroke();
+            }
+          });
+        });
+
+        requestAnimationFrame(animateParticles);
+      }
+
+      resizeCanvas();
+      initParticles();
+      animateParticles();
+
+      window.addEventListener('resize', () => {
+        resizeCanvas();
+        initParticles();
+      });
+
+      /* =============== Boot =============== */
+      initChart();
+      loadStats();
+      loadPage(1);
+      updateSelCount();
+    })();
   </script>
 </body>
 </html>
