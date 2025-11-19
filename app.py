@@ -93,10 +93,10 @@ limiter = Limiter(
 # For local development, we're lenient with CSP
 # When deploying to production, tighten these policies
 csp = {
-    'default-src': "'self'",
+    'default-src': ["'self'"],
     'script-src': [
         "'self'",
-        "'unsafe-inline'",  # Required for HTMX and inline scripts
+        "'unsafe-inline'",  # Required for inline scripts
         "https://cdn.jsdelivr.net",
         "https://cdnjs.cloudflare.com",
     ],
@@ -104,13 +104,15 @@ csp = {
         "'self'",
         "'unsafe-inline'",  # Required for inline styles
         "https://cdnjs.cloudflare.com",
+        "https://fonts.googleapis.com",  # Google Fonts
     ],
-    'img-src': "'self' data: https:",
+    'img-src': ["'self'", "data:", "https:"],
     'font-src': [
         "'self'",
         "https://cdnjs.cloudflare.com",
+        "https://fonts.gstatic.com",  # Google Fonts
     ],
-    'connect-src': "'self'",
+    'connect-src': ["'self'"],
 }
 
 # Only enable Talisman in production or if explicitly enabled
@@ -141,7 +143,13 @@ def add_security_headers(response):
 
     # Add CSP if not present
     if 'Content-Security-Policy' not in response.headers:
-        csp_value = "; ".join([f"{k} {' '.join(v)}" for k, v in csp.items()])
+        csp_parts = []
+        for k, v in csp.items():
+            if isinstance(v, list):
+                csp_parts.append(f"{k} {' '.join(v)}")
+            else:
+                csp_parts.append(f"{k} {v}")
+        csp_value = "; ".join(csp_parts)
         response.headers['Content-Security-Policy'] = csp_value
 
     # Note: HSTS only makes sense over HTTPS, skip in local dev
