@@ -1,6 +1,6 @@
 """
 Database models for Aviation Intelligence Hub
-User authentication, preferences, and email management
+User authentication, preferences, email management, and gamification
 """
 import sqlite3
 from datetime import datetime, timedelta
@@ -38,6 +38,13 @@ class User(UserMixin):
         self.email_daily_digest = bool(user_data.get('email_daily_digest', 1))
         self.email_breaking_news = bool(user_data.get('email_breaking_news', 1))
         self.unsubscribe_token = user_data.get('unsubscribe_token')
+
+        # Subscription
+        self.subscription_tier = user_data.get('subscription_tier', 'free')
+        self.subscription_status = user_data.get('subscription_status', 'inactive')
+        self.subscription_start = user_data.get('subscription_start')
+        self.subscription_end = user_data.get('subscription_end')
+        self.revenuecat_user_id = user_data.get('revenuecat_user_id')
 
     def get_id(self):
         """Required by Flask-Login"""
@@ -119,7 +126,14 @@ def init_user_tables(db):
             email_daily_digest INTEGER DEFAULT 1,
             email_breaking_news INTEGER DEFAULT 1,
             unsubscribe_token TEXT UNIQUE,
-            CONSTRAINT email_format CHECK (email LIKE '%@%.%')
+            subscription_tier TEXT DEFAULT 'free',
+            subscription_status TEXT DEFAULT 'inactive',
+            subscription_start TEXT,
+            subscription_end TEXT,
+            revenuecat_user_id TEXT UNIQUE,
+            CONSTRAINT email_format CHECK (email LIKE '%@%.%'),
+            CONSTRAINT subscription_tier_check CHECK (subscription_tier IN ('free', 'pro')),
+            CONSTRAINT subscription_status_check CHECK (subscription_status IN ('inactive', 'active', 'canceled', 'expired', 'trial'))
         )
     """)
 
@@ -180,15 +194,102 @@ def init_user_tables(db):
         )
     """)
 
+    # Gamification: User stats table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS user_gamification (
+            user_id INTEGER PRIMARY KEY,
+            points INTEGER DEFAULT 0,
+            level INTEGER DEFAULT 1,
+            current_streak INTEGER DEFAULT 0,
+            best_streak INTEGER DEFAULT 0,
+            total_logins INTEGER DEFAULT 0,
+            articles_read INTEGER DEFAULT 0,
+            last_login_date TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        )
+    """)
+
+    # Gamification: Badges/Achievements master table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS badges (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL,
+            description TEXT NOT NULL,
+            icon TEXT NOT NULL,
+            requirement_type TEXT NOT NULL,
+            requirement_value INTEGER NOT NULL,
+            tier TEXT DEFAULT 'free',
+            created_at TEXT NOT NULL,
+            CONSTRAINT requirement_type_check CHECK (requirement_type IN ('logins', 'streak', 'articles', 'points', 'early_adopter', 'pro_upgrade')),
+            CONSTRAINT tier_check CHECK (tier IN ('free', 'pro'))
+        )
+    """)
+
+    # Gamification: User badges (earned achievements)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS user_badges (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            badge_id INTEGER NOT NULL,
+            earned_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+            FOREIGN KEY (badge_id) REFERENCES badges (id) ON DELETE CASCADE,
+            UNIQUE(user_id, badge_id)
+        )
+    """)
+
+    # Gamification: Activity history (points log)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS gamification_activities (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            activity_type TEXT NOT NULL,
+            points_earned INTEGER NOT NULL,
+            description TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+            CONSTRAINT activity_type_check CHECK (activity_type IN ('login', 'streak', 'article_read', 'badge_earned', 'level_up', 'pro_upgrade'))
+        )
+    """)
+
+    # Subscription: Event log from RevenueCat webhooks
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS subscription_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            event_type TEXT NOT NULL,
+            revenuecat_user_id TEXT NOT NULL,
+            product_id TEXT,
+            purchased_at TEXT,
+            expiration_at TEXT,
+            is_trial INTEGER DEFAULT 0,
+            raw_data TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL,
+            CONSTRAINT event_type_check CHECK (event_type IN ('initial_purchase', 'renewal', 'cancellation', 'billing_issue', 'refund', 'trial_started', 'trial_converted', 'trial_cancelled'))
+        )
+    """)
+
     # Create indexes for performance
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_verification_token ON users(verification_token)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_revenuecat_user_id ON users(revenuecat_user_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_token ON password_reset_tokens(token)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_sessions_session_id ON user_sessions(session_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_login_history_user_id ON login_history(user_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_badges_user_id ON user_badges(user_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_gamification_activities_user_id ON gamification_activities(user_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_subscription_events_user_id ON subscription_events(user_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_subscription_events_revenuecat_user_id ON subscription_events(revenuecat_user_id)")
 
     db.commit()
+
+    # Initialize default badges
+    from gamification import _init_default_badges
+    _init_default_badges(db)
 
 
 def get_user_by_id(db, user_id: int) -> Optional[User]:
@@ -258,6 +359,10 @@ def create_user(db, email: str, name: str, password: str) -> tuple[Optional[User
             INSERT INTO password_history (user_id, password_hash, created_at)
             VALUES (?, ?, ?)
         """, (user_id, password_hash, datetime.utcnow().isoformat()))
+
+        # Initialize gamification for new user
+        from gamification import init_user_gamification
+        init_user_gamification(db, user_id)
 
         db.commit()
 

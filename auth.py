@@ -332,6 +332,20 @@ def login():
             flash(f'Security Notice: {reason}. If this wasn\'t you, please change your password immediately.', 'warning')
             log.warning(f"Suspicious login detected for {user.email}: {reason} - IP: {client_ip}")
 
+        # Gamification: Track login for streaks and points
+        from gamification import track_login, check_and_award_badges
+        streak_info = track_login(db, user.id)
+        if streak_info['streak_continued'] and streak_info['current_streak'] > 1:
+            flash(f"🔥 {streak_info['current_streak']}-day streak! +{streak_info['points_earned']} points", 'success')
+        elif streak_info.get('points_earned', 0) > 0:
+            flash(f"✨ +{streak_info['points_earned']} points for logging in!", 'success')
+
+        # Check for new badges
+        new_badges = check_and_award_badges(db, user.id)
+        if new_badges:
+            for badge in new_badges:
+                flash(f"🏆 New badge unlocked: {badge['icon']} {badge['name']}!", 'success')
+
         log.info(f"User logged in: {user.email} - IP: {client_ip}")
 
         # Redirect to next page or dashboard
