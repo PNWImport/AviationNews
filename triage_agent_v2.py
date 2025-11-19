@@ -253,6 +253,11 @@ class SecurityTriageAgent:
             )
             if resp.status_code == 400:
                 self.log_pass("Long input rejected")
+            elif resp.status_code == 429:
+                self.log_warning(
+                    "Rate limited during long input test",
+                    "Test skipped due to rate limiting - validation cannot be verified"
+                )
             else:
                 self.log_vuln(
                     "MEDIUM",
@@ -271,6 +276,11 @@ class SecurityTriageAgent:
             )
             if resp.status_code == 400:
                 self.log_pass("Invalid data type rejected")
+            elif resp.status_code == 429:
+                self.log_warning(
+                    "Rate limited during type validation test",
+                    "Test skipped due to rate limiting - validation cannot be verified"
+                )
             else:
                 self.log_warning(
                     "Weak type validation",

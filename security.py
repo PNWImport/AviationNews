@@ -175,7 +175,8 @@ class InputValidator:
 
     @staticmethod
     def validate_string(value: any, max_length: Optional[int] = None,
-                       pattern: Optional[str] = None, default: str = "") -> str:
+                       pattern: Optional[str] = None, default: str = "",
+                       strict: bool = False) -> str:
         """
         Validate a string input
 
@@ -184,24 +185,42 @@ class InputValidator:
             max_length: Maximum allowed length
             pattern: Regex pattern to match
             default: Default value if validation fails
+            strict: If True, raises ValueError instead of returning default
 
         Returns:
             Validated string
+
+        Raises:
+            ValueError: If strict=True and validation fails
         """
         if value is None:
+            if strict:
+                raise ValueError("Value cannot be None")
             return default
+
+        # Strict type checking
+        if strict and not isinstance(value, str):
+            raise ValueError(f"Value must be a string, not {type(value).__name__}")
 
         try:
             result = str(value).strip()
 
             if max_length and len(result) > max_length:
+                if strict:
+                    raise ValueError(f"String too long (max {max_length} characters, got {len(result)})")
                 result = result[:max_length]
 
             if pattern and result and not re.match(pattern, result):
+                if strict:
+                    raise ValueError(f"String does not match required pattern")
                 return default
 
             return result
-        except Exception:
+        except ValueError:
+            raise  # Re-raise ValueError for strict mode
+        except Exception as e:
+            if strict:
+                raise ValueError(f"String validation failed: {e}")
             return default
 
     @staticmethod

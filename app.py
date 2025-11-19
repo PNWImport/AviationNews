@@ -125,6 +125,31 @@ if not config.DEBUG or os.environ.get("FORCE_HTTPS") == "true":
 else:
     log.info("Running in debug mode - security headers disabled for development")
 
+# Add security headers manually for development mode
+@app.after_request
+def add_security_headers(response):
+    """Add security headers to all responses"""
+    # Only add if not already set by Talisman
+    if 'X-Content-Type-Options' not in response.headers:
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+
+    if 'X-Frame-Options' not in response.headers:
+        response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+
+    if 'X-XSS-Protection' not in response.headers:
+        response.headers['X-XSS-Protection'] = '1; mode=block'
+
+    # Add CSP if not present
+    if 'Content-Security-Policy' not in response.headers:
+        csp_value = "; ".join([f"{k} {' '.join(v)}" for k, v in csp.items()])
+        response.headers['Content-Security-Policy'] = csp_value
+
+    # Note: HSTS only makes sense over HTTPS, skip in local dev
+    if not config.DEBUG and 'Strict-Transport-Security' not in response.headers:
+        response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+
+    return response
+
 auto_refresh_enabled = True
 auto_refresh_timer = None
 
@@ -818,7 +843,18 @@ def api_ingest():
     """
     try:
         data = request.get_json(silent=True) or {}
-        url = InputValidator.validate_string(data.get("url"), max_length=2048)
+
+        # Strict validation: enforce type checking and length limits
+        try:
+            url = InputValidator.validate_string(
+                data.get("url"),
+                max_length=2048,
+                strict=True
+            )
+        except ValueError as e:
+            log.warning(f"Input validation failed: {e}")
+            return jsonify({"error": f"Invalid input: {str(e)}"}), 400
+
         auto_add = _truthy(data.get("auto_add_feed") or request.args.get("auto_add_feed"))
 
         if not url:
