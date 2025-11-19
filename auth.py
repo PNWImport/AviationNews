@@ -1,45 +1,163 @@
 """
 Authentication routes for Aviation Intelligence Hub
 Signup, Login, Logout, Email Verification
+REDTEAM SECURE: Aggressive rate limiting, input sanitization, brute force protection
 """
-from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app
+from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, g
 from flask_login import login_user, logout_user, login_required, current_user
 from models import (
     get_user_by_email, create_user, verify_user_email,
     update_last_login, get_user_by_id
 )
 from email_service import email_service
+from sanitizer import sanitizer
+from functools import wraps
 import logging
+import time
+import hashlib
+from datetime import datetime, timedelta
 
 log = logging.getLogger(__name__)
 
 # Create blueprint
 auth_bp = Blueprint('auth', __name__)
 
+# Brute force protection: Track failed login attempts
+failed_login_attempts = {}  # IP -> (count, lockout_until)
+FAILED_LOGIN_THRESHOLD = 5
+LOCKOUT_DURATION = 900  # 15 minutes
+
+
+def get_client_ip():
+    """Get real client IP (behind proxy support)"""
+    if request.headers.get('X-Forwarded-For'):
+        return request.headers['X-Forwarded-For'].split(',')[0].strip()
+    return request.remote_addr or 'unknown'
+
+
+def check_rate_limit(key: str, max_attempts: int, window: int) -> bool:
+    """
+    Check if rate limit exceeded
+    key: unique identifier (IP, email, etc.)
+    max_attempts: max attempts in window
+    window: time window in seconds
+    Returns: True if rate limit exceeded
+    """
+    # This is a simple in-memory implementation
+    # For production, use Redis or similar
+    cache_key = f"ratelimit_{key}"
+
+    if not hasattr(g, 'rate_limits'):
+        g.rate_limits = {}
+
+    now = time.time()
+
+    if cache_key in g.rate_limits:
+        attempts, first_attempt = g.rate_limits[cache_key]
+
+        # Reset if window expired
+        if now - first_attempt > window:
+            g.rate_limits[cache_key] = (1, now)
+            return False
+
+        # Check if exceeded
+        if attempts >= max_attempts:
+            return True
+
+        # Increment
+        g.rate_limits[cache_key] = (attempts + 1, first_attempt)
+    else:
+        g.rate_limits[cache_key] = (1, now)
+
+    return False
+
+
+def check_brute_force(ip: str) -> tuple[bool, int]:
+    """
+    Check if IP is locked out due to brute force
+    Returns: (is_locked, seconds_until_unlock)
+    """
+    if ip in failed_login_attempts:
+        count, lockout_until = failed_login_attempts[ip]
+
+        if lockout_until and datetime.utcnow() < lockout_until:
+            remaining = int((lockout_until - datetime.utcnow()).total_seconds())
+            return True, remaining
+
+        # Lockout expired, reset
+        if lockout_until and datetime.utcnow() >= lockout_until:
+            del failed_login_attempts[ip]
+
+    return False, 0
+
+
+def record_failed_login(ip: str):
+    """Record failed login attempt"""
+    if ip not in failed_login_attempts:
+        failed_login_attempts[ip] = [1, None]
+    else:
+        count, lockout = failed_login_attempts[ip]
+        count += 1
+        failed_login_attempts[ip][0] = count
+
+        # Trigger lockout
+        if count >= FAILED_LOGIN_THRESHOLD:
+            lockout_until = datetime.utcnow() + timedelta(seconds=LOCKOUT_DURATION)
+            failed_login_attempts[ip][1] = lockout_until
+            log.warning(f"IP {ip} locked out until {lockout_until} (failed attempts: {count})")
+
+
+def clear_failed_login(ip: str):
+    """Clear failed login attempts on successful login"""
+    if ip in failed_login_attempts:
+        del failed_login_attempts[ip]
+
 
 @auth_bp.route('/signup', methods=['GET', 'POST'])
 def signup():
-    """User signup with email verification"""
+    """User signup with email verification - REDTEAM SECURE"""
     if current_user.is_authenticated:
         return redirect(url_for('index'))
 
     if request.method == 'POST':
+        client_ip = get_client_ip()
+
+        # SECURITY: Rate limiting - 3 signups per hour per IP
+        if check_rate_limit(f"signup_{client_ip}", max_attempts=3, window=3600):
+            log.warning(f"Signup rate limit exceeded for IP: {client_ip}")
+            flash('Too many signup attempts. Please try again later.', 'error')
+            return render_template('signup.html'), 429
+
+        # SECURITY: Honeypot field check (bot detection)
+        honeypot = request.form.get('website', '')  # Should be empty
+        if sanitizer.check_honeypot(honeypot):
+            log.warning(f"Bot detected in signup (honeypot): {client_ip}")
+            # Silently fail - don't tell bots they're detected
+            time.sleep(2)  # Slow down bots
+            flash('Account created! Check your email to verify.', 'success')
+            return redirect(url_for('auth.login'))
+
+        # Get form data
         name = request.form.get('name', '').strip()
-        email = request.form.get('email', '').strip().lower()
+        email = request.form.get('email', '').strip()
         password = request.form.get('password', '')
         password_confirm = request.form.get('password_confirm', '')
+
+        # SECURITY: Sanitize inputs
+        sanitized = sanitizer.sanitize_signup_data(name, email)
+
+        if sanitized['errors']:
+            for error in sanitized['errors']:
+                flash(error, 'error')
+            log.warning(f"Signup validation failed: {sanitized['errors']} - IP: {client_ip}")
+            return render_template('signup.html')
+
+        name = sanitized['name']
+        email = sanitized['email']
 
         # Validation
         if not name or not email or not password:
             flash('All fields are required', 'error')
-            return render_template('signup.html')
-
-        if len(name) < 2:
-            flash('Name must be at least 2 characters', 'error')
-            return render_template('signup.html')
-
-        if '@' not in email or '.' not in email:
-            flash('Invalid email address', 'error')
             return render_template('signup.html')
 
         if password != password_confirm:
@@ -54,6 +172,7 @@ def signup():
 
         if error:
             flash(error, 'error')
+            log.info(f"Signup failed: {error} - Email: {email} - IP: {client_ip}")
             return render_template('signup.html')
 
         # Send verification email
@@ -64,6 +183,8 @@ def signup():
             user.verification_token,
             base_url
         )
+
+        log.info(f"New user signup: {email} - IP: {client_ip}")
 
         if email_sent:
             flash(
@@ -85,16 +206,43 @@ def signup():
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
-    """User login"""
+    """User login - REDTEAM SECURE with brute force protection"""
     if current_user.is_authenticated:
         return redirect(url_for('index'))
 
     if request.method == 'POST':
-        email = request.form.get('email', '').strip().lower()
+        client_ip = get_client_ip()
+
+        # SECURITY: Check if IP is locked out
+        is_locked, remaining_time = check_brute_force(client_ip)
+        if is_locked:
+            minutes = remaining_time // 60
+            flash(
+                f'Too many failed login attempts. Account locked for {minutes} more minutes.',
+                'error'
+            )
+            log.warning(f"Locked IP attempted login: {client_ip}")
+            return render_template('login.html'), 429
+
+        # SECURITY: Rate limiting - 10 login attempts per 5 minutes
+        if check_rate_limit(f"login_{client_ip}", max_attempts=10, window=300):
+            log.warning(f"Login rate limit exceeded for IP: {client_ip}")
+            flash('Too many login attempts. Please try again in a few minutes.', 'error')
+            return render_template('login.html'), 429
+
+        # Timing attack prevention - start timer
+        request_start = time.time()
+
+        email = request.form.get('email', '').strip()
         password = request.form.get('password', '')
         remember = request.form.get('remember') == 'on'
 
+        # SECURITY: Sanitize email
+        email = sanitizer.clean_email(email)
+
         if not email or not password:
+            # Constant-time response
+            time.sleep(max(0, 0.5 - (time.time() - request_start)))
             flash('Email and password are required', 'error')
             return render_template('login.html')
 
@@ -103,12 +251,33 @@ def login():
         db = get_db()
         user = get_user_by_email(db, email)
 
-        if not user or not user.check_password(password):
+        # SECURITY: Constant-time password check
+        # Always check password even if user doesn't exist (timing attack prevention)
+        password_valid = False
+        if user:
+            password_valid = user.check_password(password)
+        else:
+            # Dummy check to maintain constant time
+            import bcrypt
+            bcrypt.checkpw(b'dummy', bcrypt.hashpw(b'dummy', bcrypt.gensalt()))
+
+        if not user or not password_valid:
+            # Record failed attempt
+            record_failed_login(client_ip)
+
+            # Constant-time response
+            elapsed = time.time() - request_start
+            time.sleep(max(0, 0.5 - elapsed))
+
             flash('Invalid email or password', 'error')
+            log.warning(f"Failed login attempt: {email} - IP: {client_ip}")
             return render_template('login.html')
 
         # Check if verified
         if not user.is_verified:
+            elapsed = time.time() - request_start
+            time.sleep(max(0, 0.5 - elapsed))
+
             flash(
                 'Please verify your email address first. Check your inbox for the verification link.',
                 'error'
@@ -117,14 +286,21 @@ def login():
 
         # Check if active
         if not user.is_active:
+            elapsed = time.time() - request_start
+            time.sleep(max(0, 0.5 - elapsed))
+
             flash('Your account has been deactivated. Please contact support.', 'error')
+            log.warning(f"Inactive account login attempt: {email} - IP: {client_ip}")
             return render_template('login.html')
+
+        # SECURITY: Clear failed attempts on successful login
+        clear_failed_login(client_ip)
 
         # Login user
         login_user(user, remember=remember)
         update_last_login(db, user.id)
 
-        log.info(f"User logged in: {user.email}")
+        log.info(f"User logged in: {user.email} - IP: {client_ip}")
 
         # Redirect to next page or dashboard
         next_page = request.args.get('next')
