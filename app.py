@@ -41,6 +41,10 @@ from flask import Flask, render_template, request, jsonify, send_file, g, Respon
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_talisman import Talisman
+from flask_login import LoginManager, current_user
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.interval import IntervalTrigger
+import atexit
 
 # Load environment variables from .env file
 from dotenv import load_dotenv
@@ -49,6 +53,11 @@ load_dotenv()
 # Import our security and configuration modules
 from config import config
 from security import URLValidator, InputValidator, SecurityError, get_client_ip
+
+# Import auth modules
+from models import init_user_tables, get_user_by_id
+from auth import auth_bp
+from email_service import email_service
 
 # ---------------- Configuration ----------------
 # Validate configuration on startup
@@ -80,6 +89,20 @@ state_lock = threading.Lock()
 # Initialize Flask app
 app = Flask(__name__, template_folder="templates")
 app.config['SECRET_KEY'] = config.SECRET_KEY
+
+# Initialize Flask-Login
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'auth.login'
+login_manager.session_protection = 'strong'
+login_manager.login_message = 'Please log in to access this page.'
+login_manager.login_message_category = 'error'
+
+# Initialize email service
+email_service.init_app(app)
+
+# Register auth blueprint
+app.register_blueprint(auth_bp)
 
 # Initialize rate limiter
 limiter = Limiter(
@@ -248,6 +271,62 @@ def ensure_ai_summary_column():
         cur.execute("CREATE INDEX IF NOT EXISTS idx_content_hash ON news_items(content_hash)")
         conn.commit()
     conn.close()
+
+# --------------- Flask-Login User Loader ---------------
+@login_manager.user_loader
+def load_user(user_id):
+    """Load user by ID for Flask-Login"""
+    try:
+        db = get_db()
+        user = get_user_by_id(db, int(user_id))
+        return user
+    except Exception as e:
+        log.error(f"Failed to load user {user_id}: {e}")
+        return None
+
+# --------------- User Cleanup Job ---------------
+def cleanup_unverified_users():
+    """
+    Delete unverified users older than 12 hours.
+    Runs periodically to prevent database bloat from bot signups.
+    """
+    try:
+        conn = get_thread_db()
+        cursor = conn.cursor()
+
+        # Delete unverified users older than 12 hours
+        twelve_hours_ago = datetime.now(timezone.utc) - timedelta(hours=12)
+        cursor.execute("""
+            DELETE FROM users
+            WHERE is_verified = 0
+            AND created_at < ?
+        """, (twelve_hours_ago.isoformat(),))
+
+        deleted_count = cursor.rowcount
+        conn.commit()
+        conn.close()
+
+        if deleted_count > 0:
+            log.info(f"Cleanup job: Deleted {deleted_count} unverified users older than 12 hours")
+        else:
+            log.debug("Cleanup job: No unverified users to delete")
+
+    except Exception as e:
+        log.error(f"Cleanup job failed: {e}")
+
+# Initialize background scheduler for user cleanup
+scheduler = BackgroundScheduler()
+cleanup_interval = int(os.getenv('EMAIL_CLEANUP_INTERVAL', '3600'))  # Default: 1 hour
+scheduler.add_job(
+    func=cleanup_unverified_users,
+    trigger=IntervalTrigger(seconds=cleanup_interval),
+    id='cleanup_unverified_users',
+    name='Cleanup unverified users older than 12 hours',
+    replace_existing=True
+)
+
+# Ensure scheduler shuts down gracefully
+atexit.register(lambda: scheduler.shutdown())
 
 # --------------- Auto-Refresh System ---------------
 def start_auto_refresh():
@@ -1464,6 +1543,17 @@ def api_ai_updates():
 if __name__ == "__main__":
     init_db()
     ensure_ai_summary_column()
+
+    # Initialize user authentication tables
+    with app.app_context():
+        db = get_db()
+        init_user_tables(db)
+        log.info("User authentication tables initialized")
+
+    # Start background jobs
     start_auto_refresh()
+    scheduler.start()
+    log.info(f"Background cleanup job started (runs every {cleanup_interval} seconds)")
+
     log.info(f"Starting Aviation Intelligence Hub on {config.HOST}:{config.PORT}")
     app.run(host=config.HOST, port=config.PORT, debug=config.DEBUG, threaded=True)
