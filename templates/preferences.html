@@ -77,6 +77,19 @@
                 </form>
             </div>
 
+            <!-- Security Section -->
+            <div class="p-6 border-b border-gray-200">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">🔐 Security</h2>
+                <p class="text-gray-600 mb-4">Manage your account security and active sessions</p>
+
+                <a
+                    href="{{ url_for('auth.sessions') }}"
+                    class="block w-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-3 px-4 rounded-lg text-center transition-colors duration-200 border border-gray-300"
+                >
+                    View Active Sessions & Login History →
+                </a>
+            </div>
+
             <!-- Email Preferences Section -->
             <div class="p-6">
                 <h2 class="text-xl font-bold text-gray-800 mb-4">📧 Email Preferences</h2>

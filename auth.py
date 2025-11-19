@@ -3,13 +3,15 @@ Authentication routes for Aviation Intelligence Hub
 Signup, Login, Logout, Email Verification
 REDTEAM SECURE: Aggressive rate limiting, input sanitization, brute force protection
 """
-from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, g
+from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, g, session
 from flask_login import login_user, logout_user, login_required, current_user
 from models import (
     get_user_by_email, create_user, verify_user_email,
     update_last_login, get_user_by_id,
     create_password_reset_token, verify_password_reset_token, reset_user_password,
-    get_user_preferences, update_user_preferences, unsubscribe_user_by_token, update_user_profile
+    get_user_preferences, update_user_preferences, unsubscribe_user_by_token, update_user_profile,
+    create_session, get_active_sessions, revoke_session, revoke_all_sessions_except,
+    log_login_attempt, get_login_history, detect_suspicious_login, parse_user_agent
 )
 from email_service import email_service
 from sanitizer import sanitizer
@@ -267,6 +269,11 @@ def login():
             # Record failed attempt
             record_failed_login(client_ip)
 
+            # Log failed login attempt to database
+            user_agent = request.headers.get('User-Agent', 'Unknown')
+            user_id = user.id if user else None
+            log_login_attempt(db, email, user_id, client_ip, user_agent, success=False, failure_reason='Invalid credentials')
+
             # Constant-time response
             elapsed = time.time() - request_start
             time.sleep(max(0, 0.5 - elapsed))
@@ -302,6 +309,29 @@ def login():
         login_user(user, remember=remember)
         update_last_login(db, user.id)
 
+        # PHASE 6: Session Management
+        # Get session ID and user agent
+        user_agent = request.headers.get('User-Agent', 'Unknown')
+        session_id = session.get('_id')
+
+        # If session doesn't have an ID yet, create one
+        if not session_id:
+            import secrets
+            session_id = secrets.token_urlsafe(32)
+            session['_id'] = session_id
+
+        # Create session record
+        create_session(db, user.id, session_id, client_ip, user_agent, remember_me=remember)
+
+        # Log successful login attempt
+        log_login_attempt(db, email, user.id, client_ip, user_agent, success=True)
+
+        # Detect suspicious login (new device/location)
+        is_suspicious, reason = detect_suspicious_login(db, user.id, client_ip, parse_user_agent(user_agent))
+        if is_suspicious:
+            flash(f'Security Notice: {reason}. If this wasn\'t you, please change your password immediately.', 'warning')
+            log.warning(f"Suspicious login detected for {user.email}: {reason} - IP: {client_ip}")
+
         log.info(f"User logged in: {user.email} - IP: {client_ip}")
 
         # Redirect to next page or dashboard
@@ -318,7 +348,17 @@ def login():
 @auth_bp.route('/logout')
 @login_required
 def logout():
-    """User logout"""
+    """User logout - PHASE 6: Revoke session"""
+    # Get current session ID
+    from app import get_db
+    db = get_db()
+    session_id = session.get('_id')
+
+    # Revoke session if it exists
+    if session_id:
+        revoke_session(db, current_user.id, session_id)
+        log.info(f"Session revoked for user: {current_user.email} - session: {session_id}")
+
     logout_user()
     flash('You have been logged out', 'success')
     return redirect(url_for('index'))
@@ -551,6 +591,56 @@ def preferences():
         return redirect(url_for('index'))
 
     return render_template('preferences.html', preferences=prefs)
+
+
+@auth_bp.route('/sessions', methods=['GET', 'POST'])
+@login_required
+def sessions():
+    """Active sessions viewer - PHASE 6"""
+    from app import get_db
+    db = get_db()
+
+    if request.method == 'POST':
+        action = request.form.get('action')
+        client_ip = get_client_ip()
+
+        if action == 'revoke_session':
+            # Revoke specific session
+            target_session_id = request.form.get('session_id')
+            if target_session_id:
+                success, message = revoke_session(db, current_user.id, target_session_id)
+                if success:
+                    flash(message, 'success')
+                    log.info(f"User {current_user.email} revoked session: {target_session_id} - IP: {client_ip}")
+                else:
+                    flash(message, 'error')
+
+        elif action == 'revoke_all_others':
+            # Logout all other devices
+            current_session_id = session.get('_id')
+            if current_session_id:
+                success, message = revoke_all_sessions_except(db, current_user.id, current_session_id)
+                if success:
+                    flash(message, 'success')
+                    log.info(f"User {current_user.email} revoked all other sessions - IP: {client_ip}")
+                else:
+                    flash(message, 'error')
+            else:
+                flash('Could not identify current session', 'error')
+
+        return redirect(url_for('auth.sessions'))
+
+    # GET request - show sessions and login history
+    active_sessions = get_active_sessions(db, current_user.id)
+    login_history = get_login_history(db, current_user.id, limit=10)
+    current_session_id = session.get('_id')
+
+    return render_template(
+        'sessions.html',
+        active_sessions=active_sessions,
+        login_history=login_history,
+        current_session_id=current_session_id
+    )
 
 
 @auth_bp.route('/unsubscribe/<token>')
