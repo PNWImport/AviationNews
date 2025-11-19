@@ -333,8 +333,8 @@ def verify_email(token):
     if success:
         flash(message, 'success')
 
-        # Send welcome email
-        user = get_user_by_email(db, None)  # Get user by token
+        # Send welcome email to the verified user
+        # After verification, token is set to NULL, so find most recently verified user
         cursor = db.cursor()
         cursor.execute("SELECT * FROM users WHERE verification_token IS NULL ORDER BY id DESC LIMIT 1")
         row = cursor.fetchone()
