@@ -1229,6 +1229,148 @@ def saved_articles():
                           can_save=can_save,
                           subscription=subscription)
 
+# ================= Contact Directory Routes ====================
+
+@app.route("/contacts")
+@login_required
+def contacts():
+    """Contact directory page - browse all extracted contacts"""
+    from contact_manager import (
+        get_all_contacts,
+        get_contact_stats,
+        get_top_companies,
+        check_saved_contacts_limit,
+        get_saved_contacts
+    )
+    from gamification import get_subscription_info
+
+    db = get_db()
+
+    # Get query parameters
+    page = max(1, int(request.args.get('page', 1)))
+    limit = 50
+    offset = (page - 1) * limit
+    search = request.args.get('search', '').strip()
+    company_filter = request.args.get('company', '').strip()
+    min_confidence = float(request.args.get('min_confidence', 0))
+
+    # Get contacts
+    contacts = get_all_contacts(
+        db,
+        limit=limit,
+        offset=offset,
+        search=search if search else None,
+        company_filter=company_filter if company_filter else None,
+        min_confidence=min_confidence
+    )
+
+    # Get total count for pagination
+    cursor = db.cursor()
+    count_query = "SELECT COUNT(*) as total FROM contacts WHERE 1=1"
+    count_params = []
+
+    if search:
+        count_query += " AND (name LIKE ? OR company LIKE ? OR title LIKE ?)"
+        search_term = f"%{search}%"
+        count_params.extend([search_term, search_term, search_term])
+
+    if company_filter:
+        count_query += " AND company = ?"
+        count_params.append(company_filter)
+
+    if min_confidence > 0:
+        count_query += " AND confidence_score >= ?"
+        count_params.append(min_confidence)
+
+    cursor.execute(count_query, count_params)
+    total_contacts = cursor.fetchone()['total']
+
+    # Get statistics
+    stats = get_contact_stats(db)
+    top_companies = get_top_companies(db, limit=20)
+
+    # Get saved contact limit info
+    can_save_more, saved_count, saved_limit = check_saved_contacts_limit(db, current_user.id)
+
+    # Get IDs of saved contacts
+    saved_contacts = get_saved_contacts(db, current_user.id)
+    saved_contact_ids = {contact['id'] for contact in saved_contacts}
+
+    subscription = get_subscription_info(db, current_user.id)
+
+    return render_template("contacts.html",
+                          contacts=contacts,
+                          stats=stats,
+                          top_companies=top_companies,
+                          page=page,
+                          limit=limit,
+                          total_contacts=total_contacts,
+                          search=search,
+                          company_filter=company_filter,
+                          min_confidence=min_confidence,
+                          can_save_more=can_save_more,
+                          saved_count=saved_count,
+                          saved_limit=saved_limit,
+                          saved_contact_ids=saved_contact_ids,
+                          subscription=subscription)
+
+@app.route("/contacts/saved")
+@login_required
+def saved_contacts():
+    """User's saved contacts page"""
+    from contact_manager import get_saved_contacts, check_saved_contacts_limit
+    from gamification import get_subscription_info
+
+    db = get_db()
+    contacts = get_saved_contacts(db, current_user.id, limit=100)
+    can_save, current_count, limit = check_saved_contacts_limit(db, current_user.id)
+    subscription = get_subscription_info(db, current_user.id)
+
+    return render_template("saved_contacts.html",
+                          contacts=contacts,
+                          current_count=current_count,
+                          limit=limit,
+                          can_save=can_save,
+                          subscription=subscription)
+
+@app.route("/contacts/<int:contact_id>")
+@login_required
+def contact_profile(contact_id):
+    """Contact profile page - detailed view of a single contact"""
+    from contact_manager import (
+        get_contact_by_id,
+        get_contact_mentions,
+        is_contact_saved,
+        check_saved_contacts_limit
+    )
+    from gamification import get_subscription_info
+
+    db = get_db()
+
+    # Get contact details
+    contact = get_contact_by_id(db, contact_id)
+    if not contact:
+        flash("Contact not found", "error")
+        return redirect(url_for('contacts'))
+
+    # Get article mentions
+    mentions = get_contact_mentions(db, contact_id, limit=50)
+
+    # Check if contact is saved
+    is_saved = is_contact_saved(db, current_user.id, contact_id)
+
+    # Check if user can save more
+    can_save, _, _ = check_saved_contacts_limit(db, current_user.id)
+
+    subscription = get_subscription_info(db, current_user.id)
+
+    return render_template("contact_profile.html",
+                          contact=contact,
+                          mentions=mentions,
+                          is_saved=is_saved,
+                          can_save=can_save,
+                          subscription=subscription)
+
 @app.route("/api/articles/<int:article_id>/save", methods=["POST"])
 @login_required
 def api_save_article(article_id):
@@ -1262,6 +1404,143 @@ def api_unsave_article(article_id):
     if success:
         return jsonify({"success": True, "message": message}), 200
     return jsonify({"success": False, "message": message}), 400
+
+# ============================================================================
+# CONTACT API ROUTES
+# ============================================================================
+
+@app.route("/api/contacts/<int:contact_id>/save", methods=["POST"])
+@login_required
+def api_save_contact(contact_id):
+    """Save a contact for the current user"""
+    from contact_manager import save_contact
+
+    db = get_db()
+    payload = request.get_json(silent=True) or {}
+    notes = payload.get('notes', '')
+
+    success, message = save_contact(db, current_user.id, contact_id, notes)
+
+    if success:
+        return jsonify({"success": True, "message": message}), 200
+
+    # Check if limit reached
+    if "limit" in message.lower() or "upgrade" in message.lower():
+        return jsonify({
+            "success": False,
+            "message": message,
+            "upgrade_required": True
+        }), 403
+    return jsonify({"success": False, "message": message}), 400
+
+@app.route("/api/contacts/<int:contact_id>/unsave", methods=["POST", "DELETE"])
+@login_required
+def api_unsave_contact(contact_id):
+    """Unsave a contact"""
+    from contact_manager import unsave_contact
+
+    db = get_db()
+    success, message = unsave_contact(db, current_user.id, contact_id)
+
+    if success:
+        return jsonify({"success": True, "message": message}), 200
+    return jsonify({"success": False, "message": message}), 400
+
+@app.route("/api/contacts/<int:contact_id>/notes", methods=["POST"])
+@login_required
+def api_update_contact_notes(contact_id):
+    """Update notes for a saved contact"""
+    from contact_manager import update_saved_contact_notes
+
+    db = get_db()
+    payload = request.get_json(silent=True) or {}
+    notes = payload.get('notes', '')
+
+    success, message = update_saved_contact_notes(db, current_user.id, contact_id, notes)
+
+    if success:
+        return jsonify({"success": True, "message": message}), 200
+    return jsonify({"success": False, "message": message}), 400
+
+@app.route("/api/contacts/export/<format>", methods=["GET"])
+@login_required
+def api_export_contacts(format):
+    """Export saved contacts to CSV or vCard (Pro feature)"""
+    from contact_manager import export_contacts_to_csv, export_contacts_to_vcard
+    from gamification import is_pro_user
+
+    db = get_db()
+
+    # Check if user is Pro
+    if not is_pro_user(db, current_user.id):
+        flash("Contact export is a Pro feature. Upgrade to export your contacts!", "error")
+        return redirect(url_for('upgrade'))
+
+    if format == 'csv':
+        csv_data = export_contacts_to_csv(db, current_user.id)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        return send_file(
+            io.BytesIO(csv_data.encode('utf-8')),
+            mimetype='text/csv',
+            as_attachment=True,
+            download_name=f'aviation_contacts_{timestamp}.csv'
+        )
+    elif format == 'vcard':
+        vcard_data = export_contacts_to_vcard(db, current_user.id)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        return send_file(
+            io.BytesIO(vcard_data.encode('utf-8')),
+            mimetype='text/vcard',
+            as_attachment=True,
+            download_name=f'aviation_contacts_{timestamp}.vcf'
+        )
+    else:
+        return jsonify({"error": "Invalid format. Use 'csv' or 'vcard'"}), 400
+
+@app.route("/api/contacts/<int:contact_id>/export/<format>", methods=["GET"])
+@login_required
+def api_export_single_contact(contact_id, format):
+    """Export a single contact to CSV or vCard (Pro feature)"""
+    from contact_manager import export_contacts_to_csv, export_contacts_to_vcard
+    from gamification import is_pro_user
+
+    db = get_db()
+
+    # Check if user is Pro
+    if not is_pro_user(db, current_user.id):
+        return jsonify({"error": "Contact export is a Pro feature"}), 403
+
+    if format == 'csv':
+        csv_data = export_contacts_to_csv(db, current_user.id, [contact_id])
+        return send_file(
+            io.BytesIO(csv_data.encode('utf-8')),
+            mimetype='text/csv',
+            as_attachment=True,
+            download_name=f'contact_{contact_id}.csv'
+        )
+    elif format == 'vcard':
+        vcard_data = export_contacts_to_vcard(db, current_user.id, [contact_id])
+        return send_file(
+            io.BytesIO(vcard_data.encode('utf-8')),
+            mimetype='text/vcard',
+            as_attachment=True,
+            download_name=f'contact_{contact_id}.vcf'
+        )
+    else:
+        return jsonify({"error": "Invalid format"}), 400
+
+@app.route("/api/contacts/<int:contact_id>/sync", methods=["POST"])
+@login_required
+def api_sync_contact_to_aviation(contact_id):
+    """Sync contact to Aviation.Contact platform (placeholder)"""
+    # TODO: Implement Aviation.Contact API integration
+    # For now, return a placeholder response
+    log.info(f"Aviation.Contact sync requested for contact {contact_id} by user {current_user.id}")
+
+    return jsonify({
+        "success": False,
+        "message": "Aviation.Contact integration coming soon! This feature will sync your contacts to the Aviation.Contact networking platform."
+    }), 501  # Not Implemented
 
 def _truthy(v) -> bool:
     if v is None:
@@ -1838,6 +2117,22 @@ def api_ai_summarize():
                     if not existing_ai:
                         conn_cur.execute("UPDATE news_items SET ai_summary = ? WHERE id = ?", (ai_json_str, nid))
                         record_ai_summary_usage(conn, current_user.id, nid)
+
+                # Extract contacts from newly summarized articles
+                if not existing_ai:  # Only extract from new summaries
+                    try:
+                        from contact_extractor import process_article_for_contacts
+                        contact_count = process_article_for_contacts(
+                            conn,
+                            nid,
+                            orig_row.get('airline', ''),
+                            orig_row.get('content', ''),
+                            ai_json_str
+                        )
+                        if contact_count > 0:
+                            log.info(f"Extracted {contact_count} contacts from article {nid}")
+                    except Exception as e:
+                        log.error(f"Contact extraction failed for article {nid}: {e}")
 
                 updated += 1
 

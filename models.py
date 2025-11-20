@@ -313,6 +313,78 @@ def init_user_tables(db):
         )
     """)
 
+    # ============================================================================
+    # CONTACT EXTRACTION & AVIATION.CONTACT INTEGRATION
+    # ============================================================================
+
+    # Contacts: Master database of extracted aviation professionals
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS contacts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            first_name TEXT,
+            last_name TEXT,
+            email TEXT,
+            company TEXT,
+            title TEXT,
+            linkedin_url TEXT,
+            confidence_score REAL DEFAULT 0.5,
+            first_mentioned_date TEXT,
+            last_mentioned_date TEXT,
+            mention_count INTEGER DEFAULT 1,
+            aviation_contact_id TEXT,
+            synced_to_aviation_contact INTEGER DEFAULT 0,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(name, company)
+        )
+    """)
+
+    # Contact Mentions: Link contacts to news articles (many-to-many)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS contact_mentions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            contact_id INTEGER NOT NULL,
+            news_item_id INTEGER NOT NULL,
+            context TEXT,
+            title_at_time TEXT,
+            company_at_time TEXT,
+            confidence_score REAL DEFAULT 0.5,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (contact_id) REFERENCES contacts (id) ON DELETE CASCADE,
+            FOREIGN KEY (news_item_id) REFERENCES news_items (id) ON DELETE CASCADE,
+            UNIQUE(contact_id, news_item_id)
+        )
+    """)
+
+    # Saved Contacts: User's saved contacts (Free: 10 limit, Pro: unlimited)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS saved_contacts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            contact_id INTEGER NOT NULL,
+            saved_at TEXT NOT NULL,
+            notes TEXT,
+            is_deleted INTEGER DEFAULT 0,
+            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+            FOREIGN KEY (contact_id) REFERENCES contacts (id) ON DELETE CASCADE,
+            UNIQUE(user_id, contact_id)
+        )
+    """)
+
+    # Contact Export Log: Track exports for analytics
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS contact_exports (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            export_type TEXT NOT NULL,
+            contact_count INTEGER NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+            CONSTRAINT export_type_check CHECK (export_type IN ('csv', 'vcard', 'api'))
+        )
+    """)
+
     # Create indexes for performance
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_verification_token ON users(verification_token)")
@@ -327,6 +399,13 @@ def init_user_tables(db):
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_ai_summary_usage_user_date ON ai_summary_usage(user_id, date)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_saved_articles_user_id ON saved_articles(user_id, is_deleted)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_subscription_events_revenuecat_user_id ON subscription_events(revenuecat_user_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_contacts_name ON contacts(name)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_contacts_company ON contacts(company)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_contacts_email ON contacts(email)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_contact_mentions_contact_id ON contact_mentions(contact_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_contact_mentions_news_item_id ON contact_mentions(news_item_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_saved_contacts_user_id ON saved_contacts(user_id, is_deleted)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_contact_exports_user_id ON contact_exports(user_id)")
 
     db.commit()
 

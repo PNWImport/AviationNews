@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact Directory - Aviation Intelligence Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-900 via-blue-700 to-orange-500 min-h-screen p-4">
+    <div class="max-w-7xl mx-auto py-8">
+        <!-- Header -->
+        <div class="bg-white rounded-2xl shadow-2xl overflow-hidden fade-in mb-6">
+            <div class="bg-gradient-to-r from-blue-600 to-orange-500 p-4 sm:p-6">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                        <h1 class="text-2xl sm:text-3xl font-bold text-white mb-1">💼 Contact Directory</h1>
+                        <p class="text-sm sm:text-base text-blue-100">Aviation industry professionals mentioned in news</p>
+                    </div>
+                    <a href="/" class="text-white hover:text-blue-100 transition-colors flex-shrink-0 self-end sm:self-auto">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                        </svg>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Stats Banner -->
+            <div class="bg-gradient-to-r from-blue-50 to-orange-50 border-b border-gray-200 p-4">
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-blue-900">{{ stats.total_contacts }}</div>
+                        <div class="text-xs text-gray-600">Total Contacts</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-green-900">{{ stats.with_email }}</div>
+                        <div class="text-xs text-gray-600">With Email</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-orange-900">{{ stats.unique_companies }}</div>
+                        <div class="text-xs text-gray-600">Companies</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-purple-900">{{ (stats.avg_confidence * 100)|int }}%</div>
+                        <div class="text-xs text-gray-600">Avg Confidence</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Saved Contacts Limit Status -->
+            <div class="{% if subscription and subscription.is_pro %}bg-gradient-to-r from-purple-50 to-pink-50 border-b border-purple-200{% else %}bg-yellow-50 border-b border-yellow-200{% endif %} p-4">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                        {% if subscription and subscription.is_pro %}
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-2xl">⚡</span>
+                            <span class="font-bold text-purple-900">Pro Member - Unlimited Saved Contacts</span>
+                        </div>
+                        <p class="text-sm text-purple-700">Save as many contacts as you want! Export to CSV/vCard anytime.</p>
+                        {% else %}
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-2xl">📊</span>
+                            <span class="font-bold text-yellow-900">{{ saved_count }} / {{ saved_limit }} Contacts Saved</span>
+                        </div>
+                        <p class="text-sm text-yellow-700">
+                            {% if can_save_more %}
+                                {{ saved_limit - saved_count }} slots remaining
+                            {% else %}
+                                Limit reached! Upgrade to Pro for unlimited saves and export
+                            {% endif %}
+                        </p>
+                        {% endif %}
+                    </div>
+
+                    {% if not (subscription and subscription.is_pro) %}
+                    <div class="flex gap-2">
+                        <a href="/contacts/saved" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-all text-sm">
+                            💾 My Saved ({{ saved_count }})
+                        </a>
+                        <a href="/upgrade" class="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-2 px-4 rounded-lg shadow transition-all text-sm">
+                            ⚡ Upgrade to Pro
+                        </a>
+                    </div>
+                    {% else %}
+                    <div class="flex gap-2">
+                        <a href="/contacts/saved" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-all text-sm">
+                            💾 My Saved
+                        </a>
+                        <button onclick="exportContacts('csv')" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-all text-sm">
+                            📊 Export CSV
+                        </button>
+                        <button onclick="exportContacts('vcard')" class="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition-all text-sm">
+                            📇 Export vCard
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Search & Filter -->
+            <div class="bg-gray-50 border-b border-gray-200 p-4">
+                <form method="GET" action="/contacts" class="flex flex-col sm:flex-row gap-3">
+                    <input type="text" name="search" value="{{ search or '' }}"
+                           placeholder="Search by name, title, or company..."
+                           class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+
+                    <select name="company" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <option value="">All Companies</option>
+                        {% for company in top_companies %}
+                        <option value="{{ company.company }}" {% if company_filter == company.company %}selected{% endif %}>
+                            {{ company.company }} ({{ company.contact_count }})
+                        </option>
+                        {% endfor %}
+                    </select>
+
+                    <select name="min_confidence" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <option value="0" {% if min_confidence == 0 %}selected{% endif %}>All Confidence</option>
+                        <option value="0.5" {% if min_confidence == 0.5 %}selected{% endif %}>50%+ Confidence</option>
+                        <option value="0.7" {% if min_confidence == 0.7 %}selected{% endif %}>70%+ Confidence</option>
+                        <option value="0.9" {% if min_confidence == 0.9 %}selected{% endif %}>90%+ Confidence</option>
+                    </select>
+
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg transition-all">
+                        🔍 Search
+                    </button>
+                </form>
+            </div>
+
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="p-4 border-b border-gray-200">
+                        {% for category, message in messages %}
+                            <div class="alert mb-3 p-4 rounded-lg {% if category == 'success' %}bg-green-100 text-green-800 border border-green-200{% elif category == 'error' %}bg-red-100 text-red-800 border border-red-200{% else %}bg-blue-100 text-blue-800 border border-blue-200{% endif %} fade-in">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            <!-- Contacts List -->
+            <div class="p-4 sm:p-6">
+                {% if contacts %}
+                <div class="space-y-4">
+                    {% for contact in contacts %}
+                    <div class="bg-white border-2 border-gray-200 rounded-xl p-4 hover:shadow-lg transition-shadow">
+                        <div class="flex flex-col sm:flex-row sm:items-start gap-4">
+                            <!-- Contact Info -->
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-start gap-3 mb-3">
+                                    <div class="text-3xl flex-shrink-0">👤</div>
+                                    <div class="flex-1 min-w-0">
+                                        <h3 class="text-lg font-bold text-gray-900 mb-1">
+                                            <a href="/contacts/{{ contact.id }}" class="hover:text-blue-600 hover:underline">
+                                                {{ contact.name }}
+                                            </a>
+                                        </h3>
+
+                                        <div class="flex flex-wrap gap-2 mb-2">
+                                            {% if contact.title %}
+                                            <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
+                                                💼 {{ contact.title }}
+                                            </span>
+                                            {% endif %}
+
+                                            {% if contact.company %}
+                                            <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">
+                                                🏢 {{ contact.company }}
+                                            </span>
+                                            {% endif %}
+
+                                            {% if contact.email %}
+                                            <span class="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded">
+                                                ✉️ {{ contact.email }}
+                                            </span>
+                                            {% endif %}
+                                        </div>
+
+                                        <div class="flex flex-wrap gap-3 text-xs text-gray-600">
+                                            <span title="Number of times mentioned in news">
+                                                📰 {{ contact.mention_count }} mention{{ 's' if contact.mention_count != 1 else '' }}
+                                            </span>
+
+                                            <span title="Confidence score">
+                                                {% set confidence_pct = (contact.confidence_score * 100)|int %}
+                                                {% if confidence_pct >= 80 %}
+                                                    ✅ {{ confidence_pct }}% confidence
+                                                {% elif confidence_pct >= 60 %}
+                                                    🟡 {{ confidence_pct }}% confidence
+                                                {% else %}
+                                                    ⚠️ {{ confidence_pct }}% confidence
+                                                {% endif %}
+                                            </span>
+
+                                            {% if contact.last_mentioned_date %}
+                                            <span>
+                                                🕒 Last seen: {{ contact.last_mentioned_date[:10] }}
+                                            </span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="flex flex-col gap-2 flex-shrink-0">
+                                <a href="/contacts/{{ contact.id }}"
+                                   class="bg-blue-100 hover:bg-blue-200 text-blue-800 font-semibold px-4 py-2 rounded-lg transition-all text-sm text-center">
+                                    👁️ View Profile
+                                </a>
+
+                                {% if contact.id in saved_contact_ids %}
+                                <button onclick="unsaveContact({{ contact.id }})"
+                                        class="bg-red-100 hover:bg-red-200 text-red-800 font-semibold px-4 py-2 rounded-lg transition-all text-sm">
+                                    ❌ Unsave
+                                </button>
+                                {% else %}
+                                <button onclick="saveContact({{ contact.id }})"
+                                        class="bg-green-100 hover:bg-green-200 text-green-800 font-semibold px-4 py-2 rounded-lg transition-all text-sm"
+                                        {% if not can_save_more and not (subscription and subscription.is_pro) %}disabled title="Upgrade to Pro for unlimited saves"{% endif %}>
+                                    💾 Save
+                                </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Pagination -->
+                {% if total_contacts > limit %}
+                <div class="mt-6 flex justify-center gap-2">
+                    {% if page > 1 %}
+                    <a href="?page={{ page - 1 }}&search={{ search or '' }}&company={{ company_filter or '' }}&min_confidence={{ min_confidence }}"
+                       class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-all">
+                        ← Previous
+                    </a>
+                    {% endif %}
+
+                    <span class="bg-gray-100 text-gray-800 font-semibold py-2 px-4 rounded-lg">
+                        Page {{ page }} of {{ ((total_contacts - 1) // limit) + 1 }}
+                    </span>
+
+                    {% if page * limit < total_contacts %}
+                    <a href="?page={{ page + 1 }}&search={{ search or '' }}&company={{ company_filter or '' }}&min_confidence={{ min_confidence }}"
+                       class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-all">
+                        Next →
+                    </a>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% else %}
+                <div class="bg-gray-50 border border-gray-200 p-8 sm:p-12 rounded-xl text-center">
+                    <div class="text-5xl sm:text-6xl mb-4">💼</div>
+                    <h3 class="text-xl sm:text-2xl font-bold text-gray-900 mb-2">No Contacts Found</h3>
+                    <p class="text-gray-600 mb-6">Try different search criteria or process more news articles with AI summaries to extract contacts</p>
+                    <a href="/catalog" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg transition-all inline-block">
+                        📰 Browse News & Generate Summaries
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Footer Links -->
+            <div class="bg-gray-50 p-4 border-t border-gray-200 flex flex-wrap gap-4 justify-center text-sm">
+                <a href="/contacts/saved" class="text-blue-600 hover:text-blue-800 font-semibold hover:underline">
+                    💾 My Saved Contacts
+                </a>
+                <a href="/catalog" class="text-blue-600 hover:text-blue-800 font-semibold hover:underline">
+                    📰 News Catalog
+                </a>
+                <a href="/dashboard" class="text-blue-600 hover:text-blue-800 font-semibold hover:underline">
+                    🎮 Dashboard
+                </a>
+                <a href="/upgrade" class="text-blue-600 hover:text-blue-800 font-semibold hover:underline">
+                    ⚡ Upgrade to Pro
+                </a>
+                <a href="/" class="text-blue-600 hover:text-blue-800 font-semibold hover:underline">
+                    🏠 Home
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function saveContact(contactId) {
+            fetch(`/api/contacts/${contactId}/save`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to save contact');
+            });
+        }
+
+        function unsaveContact(contactId) {
+            if (!confirm('Remove this contact from your saved collection?')) {
+                return;
+            }
+
+            fetch(`/api/contacts/${contactId}/unsave`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to unsave contact');
+            });
+        }
+
+        function exportContacts(format) {
+            window.location.href = `/api/contacts/export/${format}`;
+        }
+    </script>
+</body>
+</html>

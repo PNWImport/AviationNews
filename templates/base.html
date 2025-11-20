@@ -32,6 +32,7 @@
                         <a href="{{ url_for('index') }}" class="hover:bg-blue-800 px-3 py-2 rounded-md transition-colors">Dashboard</a>
                         <a href="{{ url_for('catalog') }}" class="hover:bg-blue-800 px-3 py-2 rounded-md transition-colors">Catalog</a>
                         {% if current_user.is_authenticated %}
+                        <a href="{{ url_for('contacts') }}" class="hover:bg-blue-800 px-3 py-2 rounded-md transition-colors">💼 Contacts</a>
                         <a href="{{ url_for('saved_articles') }}" class="hover:bg-blue-800 px-3 py-2 rounded-md transition-colors">📚 Saved</a>
                         {% endif %}
                         <a href="{{ url_for('upload') }}" class="hover:bg-blue-800 px-3 py-2 rounded-md transition-colors">Upload</a>
