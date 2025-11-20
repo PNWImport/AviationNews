@@ -286,6 +286,33 @@ def init_user_tables(db):
         )
     """)
 
+    # Pro Features: AI Summary Usage Tracking (Free: 10/day limit)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS ai_summary_usage (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            news_item_id INTEGER NOT NULL,
+            date TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+            FOREIGN KEY (news_item_id) REFERENCES news_items (id) ON DELETE CASCADE
+        )
+    """)
+
+    # Pro Features: Saved Articles (Free: 5 limit, Pro: unlimited)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS saved_articles (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            news_item_id INTEGER NOT NULL,
+            saved_at TEXT NOT NULL,
+            is_deleted INTEGER DEFAULT 0,
+            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+            FOREIGN KEY (news_item_id) REFERENCES news_items (id) ON DELETE CASCADE,
+            UNIQUE(user_id, news_item_id)
+        )
+    """)
+
     # Create indexes for performance
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_verification_token ON users(verification_token)")
@@ -297,6 +324,8 @@ def init_user_tables(db):
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_badges_user_id ON user_badges(user_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_gamification_activities_user_id ON gamification_activities(user_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_subscription_events_user_id ON subscription_events(user_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_ai_summary_usage_user_date ON ai_summary_usage(user_id, date)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_saved_articles_user_id ON saved_articles(user_id, is_deleted)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_subscription_events_revenuecat_user_id ON subscription_events(revenuecat_user_id)")
 
     db.commit()

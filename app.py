@@ -377,12 +377,23 @@ def send_daily_digest():
             log.info("Daily digest: No articles from last 24 hours")
             return
 
-        # Send digest to each user
+        # Send digest to each user (respecting Free vs Pro frequency)
+        from pro_features import should_send_digest_today
+        import calendar
+
         base_url = config.HOST if config.HOST.startswith('http') else f"http://{config.HOST}:{config.PORT}"
+        current_day = calendar.day_name[datetime.utcnow().weekday()]
         sent_count = 0
+        skipped_count = 0
 
         for user in users:
             try:
+                # Check if user should receive digest today (Free: Sunday only, Pro: daily)
+                if not should_send_digest_today(db, user['id'], current_day):
+                    skipped_count += 1
+                    log.debug(f"Skipping digest for {user['email']} (free tier, not Sunday)")
+                    continue
+
                 success = email_service.send_daily_digest_email(
                     to_email=user['email'],
                     name=user['name'],
@@ -400,7 +411,7 @@ def send_daily_digest():
             except Exception as e:
                 log.error(f"Error sending daily digest to {user['email']}: {e}")
 
-        log.info(f"Daily digest job completed: {sent_count}/{len(users)} emails sent")
+        log.info(f"Daily digest job completed: {sent_count} sent, {skipped_count} skipped (free tier), {len(users)} total")
 
     except Exception as e:
         log.error(f"Daily digest job failed: {e}")
@@ -446,12 +457,21 @@ def check_and_send_breaking_news(article_data: dict):
         if not users:
             return
 
-        # Send breaking news alert to each user
+        # Send breaking news alert to each Pro user (Pro-only feature)
+        from pro_features import can_receive_breaking_news
+
         base_url = config.HOST if config.HOST.startswith('http') else f"http://{config.HOST}:{config.PORT}"
         sent_count = 0
+        skipped_count = 0
 
         for user in users:
             try:
+                # Breaking news is Pro-only feature
+                if not can_receive_breaking_news(db, user['id']):
+                    skipped_count += 1
+                    log.debug(f"Skipping breaking news for {user['email']} (free tier)")
+                    continue
+
                 success = email_service.send_breaking_news_alert(
                     to_email=user['email'],
                     name=user['name'],
@@ -466,7 +486,7 @@ def check_and_send_breaking_news(article_data: dict):
             except Exception as e:
                 log.error(f"Error sending breaking news alert to {user['email']}: {e}")
 
-        log.info(f"Breaking news alerts sent: {sent_count}/{len(users)} users")
+        log.info(f"Breaking news alerts sent: {sent_count} Pro users, {skipped_count} skipped (free tier)")
 
     except Exception as e:
         log.error(f"Breaking news check failed: {e}")
@@ -1190,6 +1210,59 @@ def badges():
 
     return render_template("badges.html", badges=all_badges)
 
+@app.route("/saved")
+@login_required
+def saved_articles():
+    """User's saved articles page"""
+    from pro_features import get_saved_articles, check_saved_articles_limit
+    from gamification import get_subscription_info
+
+    db = get_db()
+    articles = get_saved_articles(db, current_user.id, limit=50)
+    can_save, current_count, limit = check_saved_articles_limit(db, current_user.id)
+    subscription = get_subscription_info(db, current_user.id)
+
+    return render_template("saved_articles.html",
+                          articles=articles,
+                          current_count=current_count,
+                          limit=limit,
+                          can_save=can_save,
+                          subscription=subscription)
+
+@app.route("/api/articles/<int:article_id>/save", methods=["POST"])
+@login_required
+def api_save_article(article_id):
+    """Save an article"""
+    from pro_features import save_article
+
+    db = get_db()
+    success, message = save_article(db, current_user.id, article_id)
+
+    if success:
+        return jsonify({"success": True, "message": message}), 200
+    else:
+        # Check if it's a limit error
+        if "limit" in message.lower() or "upgrade" in message.lower():
+            return jsonify({
+                "success": False,
+                "message": message,
+                "upgrade_required": True
+            }), 403
+        return jsonify({"success": False, "message": message}), 400
+
+@app.route("/api/articles/<int:article_id>/unsave", methods=["POST", "DELETE"])
+@login_required
+def api_unsave_article(article_id):
+    """Unsave an article"""
+    from pro_features import unsave_article
+
+    db = get_db()
+    success, message = unsave_article(db, current_user.id, article_id)
+
+    if success:
+        return jsonify({"success": True, "message": message}), 200
+    return jsonify({"success": False, "message": message}), 400
+
 def _truthy(v) -> bool:
     if v is None:
         return False
@@ -1593,6 +1666,7 @@ def _call_worker(items: List[Dict[str, Any]], batch_num: int = 0) -> Dict[str, A
 
 @app.route("/api/ai/summarize", methods=["POST"])
 @limiter.limit("10 per minute")
+@login_required
 def api_ai_summarize():
     """Generate AI summaries for news items"""
     if not config.CF_WORKER_URL or not config.CF_WORKER_TOKEN:
@@ -1601,6 +1675,19 @@ def api_ai_summarize():
     db = get_db()
     cur = db.cursor()
     payload = request.get_json(silent=True) or {}
+
+    # Check AI summary limit (Free: 10/day, Pro: unlimited)
+    from pro_features import check_ai_summary_limit, record_ai_summary_usage
+    can_generate, used_today, limit = check_ai_summary_limit(db, current_user.id)
+
+    if not can_generate:
+        return jsonify({
+            "error": f"Daily AI summary limit reached ({used_today}/{limit})",
+            "upgrade_required": True,
+            "message": "Upgrade to Pro for unlimited AI summaries",
+            "used_today": used_today,
+            "limit": limit
+        }), 403
 
     items: List[Dict[str, Any]] = []
     if isinstance(payload.get("items"), list) and payload["items"]:
@@ -1744,9 +1831,13 @@ def api_ai_summarize():
 
                 if do_update:
                     conn_cur.execute("UPDATE news_items SET ai_summary = ? WHERE id = ?", (ai_json_str, nid))
+                    # Record AI summary usage for limit tracking
+                    if not existing_ai:  # Only count new summaries
+                        record_ai_summary_usage(conn, current_user.id, nid)
                 else:
                     if not existing_ai:
                         conn_cur.execute("UPDATE news_items SET ai_summary = ? WHERE id = ?", (ai_json_str, nid))
+                        record_ai_summary_usage(conn, current_user.id, nid)
 
                 updated += 1
 
