@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unsubscribe - Aviation Intelligence Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-900 via-blue-700 to-orange-500 min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-md">
+        <div class="bg-white rounded-2xl shadow-2xl overflow-hidden fade-in">
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-blue-600 to-orange-500 p-6 sm:p-8 text-center">
+                <div class="text-4xl sm:text-5xl mb-3">{% if success %}✅{% else %}❌{% endif %}</div>
+                <h1 class="text-2xl sm:text-3xl font-bold text-white mb-2">
+                    {% if success %}Unsubscribed{% else %}Error{% endif %}
+                </h1>
+                <p class="text-sm sm:text-base text-blue-100">Aviation Intelligence Hub</p>
+            </div>
+
+            <!-- Message -->
+            <div class="p-6 sm:p-8">
+                {% if success %}
+                    <div class="bg-green-50 border-l-4 border-green-500 p-4 mb-6 rounded">
+                        <p class="text-green-800 font-semibold">{{ message }}</p>
+                    </div>
+
+                    <div class="space-y-4">
+                        <p class="text-gray-700">
+                            {% if email_type == 'all' %}
+                                You will no longer receive any emails from Aviation Intelligence Hub.
+                            {% elif email_type == 'digest' %}
+                                You will no longer receive daily digest emails. You will still receive breaking news alerts.
+                            {% elif email_type == 'breaking_news' %}
+                                You will no longer receive breaking news alerts. You will still receive daily digest emails.
+                            {% endif %}
+                        </p>
+
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <p class="text-sm text-blue-800">
+                                <strong>Want to manage your preferences instead?</strong><br>
+                                If you'd like to customize which emails you receive, you can adjust your settings after logging in.
+                            </p>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded">
+                        <p class="text-red-800 font-semibold">{{ message }}</p>
+                    </div>
+
+                    <p class="text-gray-700 mb-4">
+                        This unsubscribe link may be invalid or expired. If you'd like to manage your email preferences, please log in to your account.
+                    </p>
+                {% endif %}
+
+                <!-- Action Buttons -->
+                <div class="mt-8 space-y-3">
+                    <a
+                        href="/"
+                        class="block w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg text-center transition-colors duration-200 shadow-md hover:shadow-lg"
+                    >
+                        Go to Homepage
+                    </a>
+
+                    <a
+                        href="{{ url_for('auth.login') }}"
+                        class="block w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-4 rounded-lg text-center transition-colors duration-200"
+                    >
+                        Log In
+                    </a>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="bg-gray-50 p-4 text-center text-sm text-gray-600 border-t border-gray-200">
+                <p>© 2025 Aviation Intelligence Hub</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

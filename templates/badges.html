@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Badges - Aviation Intelligence Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .badge-locked { filter: grayscale(100%) opacity(0.5); }
+        .badge-earned { animation: pulse 2s ease-in-out infinite; }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-900 via-blue-700 to-orange-500 min-h-screen p-4">
+    <div class="max-w-6xl mx-auto py-8">
+        <!-- Header -->
+        <div class="bg-white rounded-2xl shadow-2xl overflow-hidden fade-in mb-6">
+            <div class="bg-gradient-to-r from-blue-600 to-orange-500 p-4 sm:p-6">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                        <h1 class="text-2xl sm:text-3xl font-bold text-white mb-1">🏆 Badge Collection</h1>
+                        <p class="text-sm sm:text-base text-blue-100">Unlock achievements and show off your progress</p>
+                    </div>
+                    <a href="/" class="text-white hover:text-blue-100 transition-colors flex-shrink-0 self-end sm:self-auto">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                        </svg>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Progress Stats (if logged in) -->
+            {% if current_user.is_authenticated %}
+            <div class="p-4 bg-gradient-to-r from-yellow-50 to-orange-50 border-b border-orange-200">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div class="flex items-center gap-3">
+                        <div class="text-3xl sm:text-4xl">🏆</div>
+                        <div>
+                            <div class="text-lg sm:text-xl font-bold text-gray-900">
+                                {{ badges|selectattr('earned')|list|length }} / {{ badges|length }} Badges Earned
+                            </div>
+                            <div class="text-xs sm:text-sm text-gray-600">
+                                {% set progress = (badges|selectattr('earned')|list|length / badges|length * 100)|int %}
+                                {{ progress }}% Complete
+                            </div>
+                        </div>
+                    </div>
+                    <div class="w-full sm:w-64">
+                        <div class="bg-gray-300 rounded-full h-4 overflow-hidden">
+                            <div class="bg-gradient-to-r from-yellow-500 to-orange-600 h-4 rounded-full transition-all duration-500"
+                                 style="width: {{ (badges|selectattr('earned')|list|length / badges|length * 100)|int }}%">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Badges Grid -->
+            <div class="p-4 sm:p-6">
+                {% if badges %}
+                <!-- Free Tier Badges -->
+                <div class="mb-8">
+                    <h2 class="text-xl sm:text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                        <span>🆓</span>
+                        <span>Free Tier Badges</span>
+                    </h2>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                        {% for badge in badges if badge.tier == 'free' %}
+                        <div class="{% if badge.earned %}badge-earned bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-300{% else %}badge-locked bg-gray-50 border border-gray-300{% endif %} p-4 rounded-xl hover:shadow-lg transition-all">
+                            <div class="text-center">
+                                <div class="text-4xl sm:text-5xl mb-3">{{ badge.icon }}</div>
+                                <h3 class="font-bold text-sm sm:text-base {% if badge.earned %}text-gray-900{% else %}text-gray-500{% endif %} mb-1">
+                                    {{ badge.name }}
+                                </h3>
+                                <p class="text-xs text-gray-600 mb-2">{{ badge.description }}</p>
+
+                                <!-- Progress Indicator -->
+                                <div class="mt-3 pt-3 border-t {% if badge.earned %}border-green-200{% else %}border-gray-200{% endif %}">
+                                    {% if badge.earned %}
+                                    <div class="bg-green-200 text-green-800 px-2 py-1 rounded-full text-xs font-semibold">
+                                        ✓ Unlocked
+                                    </div>
+                                    {% else %}
+                                    <div class="text-xs text-gray-600">
+                                        <div class="font-semibold mb-1">Requirement:</div>
+                                        <div>
+                                            {% if badge.requirement_type == 'logins' %}
+                                                Login {{ badge.requirement_value }} time{{ 's' if badge.requirement_value > 1 else '' }}
+                                            {% elif badge.requirement_type == 'streak' %}
+                                                {{ badge.requirement_value }} day streak
+                                            {% elif badge.requirement_type == 'articles' %}
+                                                Read {{ badge.requirement_value }} articles
+                                            {% elif badge.requirement_type == 'points' %}
+                                                Earn {{ badge.requirement_value }} points
+                                            {% elif badge.requirement_type == 'early_adopter' %}
+                                                Be in first {{ badge.requirement_value }} users
+                                            {% else %}
+                                                {{ badge.requirement_type }}
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Pro Tier Badges -->
+                {% set pro_badges = badges|selectattr('tier', 'equalto', 'pro')|list %}
+                {% if pro_badges %}
+                <div>
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
+                        <h2 class="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-2">
+                            <span>⚡</span>
+                            <span>Pro Tier Badges</span>
+                        </h2>
+                        {% if not current_user.is_authenticated or (subscription and not subscription.is_pro) %}
+                        <a href="/upgrade" class="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-2 px-4 rounded-lg shadow transition-all text-sm sm:text-base text-center">
+                            Upgrade to Unlock
+                        </a>
+                        {% endif %}
+                    </div>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                        {% for badge in pro_badges %}
+                        <div class="{% if badge.earned %}badge-earned bg-gradient-to-br from-purple-50 to-pink-100 border-2 border-purple-300{% else %}badge-locked bg-gray-50 border border-gray-300{% endif %} p-4 rounded-xl hover:shadow-lg transition-all relative">
+                            {% if not badge.earned and (not current_user.is_authenticated or (subscription and not subscription.is_pro)) %}
+                            <div class="absolute top-2 right-2 bg-purple-600 text-white text-xs font-bold px-2 py-1 rounded">
+                                PRO
+                            </div>
+                            {% endif %}
+                            <div class="text-center">
+                                <div class="text-4xl sm:text-5xl mb-3">{{ badge.icon }}</div>
+                                <h3 class="font-bold text-sm sm:text-base {% if badge.earned %}text-gray-900{% else %}text-gray-500{% endif %} mb-1">
+                                    {{ badge.name }}
+                                </h3>
+                                <p class="text-xs text-gray-600 mb-2">{{ badge.description }}</p>
+
+                                <!-- Progress Indicator -->
+                                <div class="mt-3 pt-3 border-t {% if badge.earned %}border-purple-200{% else %}border-gray-200{% endif %}">
+                                    {% if badge.earned %}
+                                    <div class="bg-purple-200 text-purple-800 px-2 py-1 rounded-full text-xs font-semibold">
+                                        ✓ Unlocked
+                                    </div>
+                                    {% else %}
+                                    <div class="text-xs text-gray-600">
+                                        <div class="font-semibold mb-1">Requirement:</div>
+                                        <div>
+                                            {% if badge.requirement_type == 'pro_upgrade' and badge.requirement_value == 1 %}
+                                                Upgrade to Pro
+                                            {% elif badge.requirement_type == 'pro_upgrade' %}
+                                                Pro for {{ badge.requirement_value }} days
+                                            {% else %}
+                                                {{ badge.requirement_type }}
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Tips Section -->
+                <div class="mt-8 bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 rounded-xl p-4 sm:p-6">
+                    <h3 class="font-bold text-blue-900 mb-3 text-base sm:text-lg flex items-center gap-2">
+                        <span>💡</span>
+                        <span>Badge Tips</span>
+                    </h3>
+                    <ul class="space-y-2 text-sm text-blue-800">
+                        <li class="flex items-start gap-2">
+                            <span class="flex-shrink-0 mt-1">🔥</span>
+                            <span><strong>Daily Login Streaks:</strong> Login every day to build your streak and unlock streak badges. Don't break the chain!</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="flex-shrink-0 mt-1">📰</span>
+                            <span><strong>Read Articles:</strong> Browse and read aviation news to unlock reading badges</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="flex-shrink-0 mt-1">🎯</span>
+                            <span><strong>Earn Points:</strong> Complete various activities to accumulate points and unlock point-based badges</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="flex-shrink-0 mt-1">⚡</span>
+                            <span><strong>Go Pro:</strong> Upgrade to Pro to unlock exclusive Pro badges and earn 500 bonus points</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="flex-shrink-0 mt-1">🏆</span>
+                            <span><strong>Badge Rewards:</strong> Each badge earns you 50 bonus points!</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- CTA Buttons -->
+                <div class="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {% if current_user.is_authenticated %}
+                    <a href="/dashboard" class="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all text-center">
+                        📊 Dashboard
+                    </a>
+                    <a href="/leaderboard" class="bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all text-center">
+                        🏅 Leaderboard
+                    </a>
+                    <a href="/upgrade" class="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all text-center">
+                        ⚡ Go Pro
+                    </a>
+                    {% else %}
+                    <a href="{{ url_for('auth.signup') }}" class="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all text-center">
+                        🚀 Sign Up
+                    </a>
+                    <a href="{{ url_for('auth.login') }}" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-6 rounded-xl transition-all text-center">
+                        🔑 Log In
+                    </a>
+                    <a href="/leaderboard" class="bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all text-center">
+                        🏅 Leaderboard
+                    </a>
+                    {% endif %}
+                </div>
+
+                {% else %}
+                <div class="bg-gray-50 border border-gray-200 p-8 sm:p-12 rounded-xl text-center">
+                    <div class="text-5xl sm:text-6xl mb-4">🏆</div>
+                    <h3 class="text-xl sm:text-2xl font-bold text-gray-900 mb-2">No Badges Available</h3>
+                    <p class="text-gray-600">Check back soon for new achievements!</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Footer Links -->
+            <div class="bg-gray-50 p-4 border-t border-gray-200 flex flex-wrap gap-4 justify-center text-sm">
+                <a href="/dashboard" class="text-blue-600 hover:text-blue-800 font-semibold hover:underline">
+                    🎮 Dashboard
+                </a>
+                <a href="/leaderboard" class="text-blue-600 hover:text-blue-800 font-semibold hover:underline">
+                    🏅 Leaderboard
+                </a>
+                <a href="/upgrade" class="text-blue-600 hover:text-blue-800 font-semibold hover:underline">
+                    ⚡ Upgrade to Pro
+                </a>
+                <a href="/" class="text-blue-600 hover:text-blue-800 font-semibold hover:underline">
+                    🏠 Home
+                </a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

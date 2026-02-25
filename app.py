@@ -41,6 +41,11 @@ from flask import Flask, render_template, request, jsonify, send_file, g, Respon
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_talisman import Talisman
+from flask_login import LoginManager, current_user
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.interval import IntervalTrigger
+from apscheduler.triggers.cron import CronTrigger
+import atexit
 
 # Load environment variables from .env file
 from dotenv import load_dotenv
@@ -49,6 +54,11 @@ load_dotenv()
 # Import our security and configuration modules
 from config import config
 from security import URLValidator, InputValidator, SecurityError, get_client_ip
+
+# Import auth modules
+from models import init_user_tables, get_user_by_id
+from auth import auth_bp
+from email_service import email_service
 
 # ---------------- Configuration ----------------
 # Validate configuration on startup
@@ -81,6 +91,20 @@ state_lock = threading.Lock()
 app = Flask(__name__, template_folder="templates")
 app.config['SECRET_KEY'] = config.SECRET_KEY
 
+# Initialize Flask-Login
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'auth.login'
+login_manager.session_protection = 'strong'
+login_manager.login_message = 'Please log in to access this page.'
+login_manager.login_message_category = 'error'
+
+# Initialize email service
+email_service.init_app(app)
+
+# Register auth blueprint
+app.register_blueprint(auth_bp)
+
 # Initialize rate limiter
 limiter = Limiter(
     get_remote_address,
@@ -93,10 +117,10 @@ limiter = Limiter(
 # For local development, we're lenient with CSP
 # When deploying to production, tighten these policies
 csp = {
-    'default-src': "'self'",
+    'default-src': ["'self'"],
     'script-src': [
         "'self'",
-        "'unsafe-inline'",  # Required for HTMX and inline scripts
+        "'unsafe-inline'",  # Required for inline scripts
         "https://cdn.jsdelivr.net",
         "https://cdnjs.cloudflare.com",
     ],
@@ -104,13 +128,15 @@ csp = {
         "'self'",
         "'unsafe-inline'",  # Required for inline styles
         "https://cdnjs.cloudflare.com",
+        "https://fonts.googleapis.com",  # Google Fonts
     ],
-    'img-src': "'self' data: https:",
+    'img-src': ["'self'", "data:", "https:"],
     'font-src': [
         "'self'",
         "https://cdnjs.cloudflare.com",
+        "https://fonts.gstatic.com",  # Google Fonts
     ],
-    'connect-src': "'self'",
+    'connect-src': ["'self'"],
 }
 
 # Only enable Talisman in production or if explicitly enabled
@@ -141,7 +167,13 @@ def add_security_headers(response):
 
     # Add CSP if not present
     if 'Content-Security-Policy' not in response.headers:
-        csp_value = "; ".join([f"{k} {' '.join(v)}" for k, v in csp.items()])
+        csp_parts = []
+        for k, v in csp.items():
+            if isinstance(v, list):
+                csp_parts.append(f"{k} {' '.join(v)}")
+            else:
+                csp_parts.append(f"{k} {v}")
+        csp_value = "; ".join(csp_parts)
         response.headers['Content-Security-Policy'] = csp_value
 
     # Note: HSTS only makes sense over HTTPS, skip in local dev
@@ -240,6 +272,247 @@ def ensure_ai_summary_column():
         cur.execute("CREATE INDEX IF NOT EXISTS idx_content_hash ON news_items(content_hash)")
         conn.commit()
     conn.close()
+
+# --------------- Flask-Login User Loader ---------------
+@login_manager.user_loader
+def load_user(user_id):
+    """Load user by ID for Flask-Login"""
+    try:
+        db = get_db()
+        user = get_user_by_id(db, int(user_id))
+        return user
+    except Exception as e:
+        log.error(f"Failed to load user {user_id}: {e}")
+        return None
+
+# --------------- User Cleanup Job ---------------
+def cleanup_unverified_users():
+    """
+    Delete unverified users older than 12 hours.
+    Runs periodically to prevent database bloat from bot signups.
+    """
+    try:
+        conn = get_thread_db()
+        cursor = conn.cursor()
+
+        # Delete unverified users older than 12 hours
+        twelve_hours_ago = datetime.now(timezone.utc) - timedelta(hours=12)
+        cursor.execute("""
+            DELETE FROM users
+            WHERE is_verified = 0
+            AND created_at < ?
+        """, (twelve_hours_ago.isoformat(),))
+
+        deleted_count = cursor.rowcount
+        conn.commit()
+        conn.close()
+
+        if deleted_count > 0:
+            log.info(f"Cleanup job: Deleted {deleted_count} unverified users older than 12 hours")
+        else:
+            log.debug("Cleanup job: No unverified users to delete")
+
+    except Exception as e:
+        log.error(f"Cleanup job failed: {e}")
+
+def send_daily_digest():
+    """
+    Send daily digest email to all subscribed users
+    Runs at 8:00 AM UTC daily
+    """
+    try:
+        log.info("Starting daily digest job...")
+
+        db = get_thread_db()
+        cursor = db.cursor()
+
+        # Get all verified users who have daily digest enabled
+        cursor.execute("""
+            SELECT id, email, name, unsubscribe_token
+            FROM users
+            WHERE is_verified = 1
+            AND email_daily_digest = 1
+        """)
+        users = cursor.fetchall()
+
+        if not users:
+            log.info("Daily digest: No users to send to")
+            return
+
+        # Get articles from last 24 hours
+        from datetime import timedelta
+        yesterday = (datetime.utcnow() - timedelta(days=1)).isoformat()
+
+        cursor.execute("""
+            SELECT airline as title, source, ai_summary, sentiment, date as published_date
+            FROM news_items
+            WHERE date >= ?
+            AND ai_summary IS NOT NULL
+            ORDER BY sentiment ASC, date DESC
+            LIMIT 10
+        """, (yesterday,))
+
+        articles = []
+        for row in cursor.fetchall():
+            # ai_summary might be JSON string, try to parse it
+            ai_summary_text = row['ai_summary']
+            if ai_summary_text:
+                try:
+                    import json
+                    ai_data = json.loads(ai_summary_text)
+                    ai_summary_text = ai_data.get('summary', ai_summary_text)
+                except:
+                    pass  # Use as-is if not JSON
+
+            articles.append({
+                'title': row['title'],
+                'url': row['source'],  # source field contains the URL
+                'source': row['source'],
+                'ai_summary': ai_summary_text,
+                'sentiment': row['sentiment'] or 0,
+                'published_date': row['published_date']
+            })
+
+        if not articles:
+            log.info("Daily digest: No articles from last 24 hours")
+            return
+
+        # Send digest to each user (respecting Free vs Pro frequency)
+        from pro_features import should_send_digest_today
+        import calendar
+
+        base_url = config.HOST if config.HOST.startswith('http') else f"http://{config.HOST}:{config.PORT}"
+        current_day = calendar.day_name[datetime.utcnow().weekday()]
+        sent_count = 0
+        skipped_count = 0
+
+        for user in users:
+            try:
+                # Check if user should receive digest today (Free: Sunday only, Pro: daily)
+                if not should_send_digest_today(db, user['id'], current_day):
+                    skipped_count += 1
+                    log.debug(f"Skipping digest for {user['email']} (free tier, not Sunday)")
+                    continue
+
+                success = email_service.send_daily_digest_email(
+                    to_email=user['email'],
+                    name=user['name'],
+                    articles=articles,
+                    unsubscribe_token=user['unsubscribe_token'],
+                    base_url=base_url
+                )
+
+                if success:
+                    sent_count += 1
+                    log.info(f"Daily digest sent to: {user['email']}")
+                else:
+                    log.warning(f"Failed to send daily digest to: {user['email']}")
+
+            except Exception as e:
+                log.error(f"Error sending daily digest to {user['email']}: {e}")
+
+        log.info(f"Daily digest job completed: {sent_count} sent, {skipped_count} skipped (free tier), {len(users)} total")
+
+    except Exception as e:
+        log.error(f"Daily digest job failed: {e}")
+
+def check_and_send_breaking_news(article_data: dict):
+    """
+    Check if article qualifies as breaking news and send alerts
+    Breaking news criteria: sentiment < -0.3 and recent (< 6 hours old)
+    """
+    try:
+        sentiment = article_data.get('sentiment', 0)
+
+        # Check if it's breaking news (high-negative sentiment)
+        if sentiment >= -0.3:
+            return  # Not breaking news
+
+        # Check if article is recent (< 6 hours old)
+        published_date = article_data.get('published_date')
+        if published_date:
+            try:
+                pub_time = datetime.fromisoformat(published_date.replace('Z', '+00:00'))
+                age_hours = (datetime.utcnow() - pub_time.replace(tzinfo=None)).total_seconds() / 3600
+
+                if age_hours > 6:
+                    return  # Too old
+            except:
+                pass  # If we can't parse date, proceed anyway
+
+        log.info(f"Breaking news detected: {article_data.get('title')} (sentiment: {sentiment:.2f})")
+
+        # Get all verified users who have breaking news alerts enabled
+        db = get_thread_db()
+        cursor = db.cursor()
+
+        cursor.execute("""
+            SELECT id, email, name, unsubscribe_token
+            FROM users
+            WHERE is_verified = 1
+            AND email_breaking_news = 1
+        """)
+        users = cursor.fetchall()
+
+        if not users:
+            return
+
+        # Send breaking news alert to each Pro user (Pro-only feature)
+        from pro_features import can_receive_breaking_news
+
+        base_url = config.HOST if config.HOST.startswith('http') else f"http://{config.HOST}:{config.PORT}"
+        sent_count = 0
+        skipped_count = 0
+
+        for user in users:
+            try:
+                # Breaking news is Pro-only feature
+                if not can_receive_breaking_news(db, user['id']):
+                    skipped_count += 1
+                    log.debug(f"Skipping breaking news for {user['email']} (free tier)")
+                    continue
+
+                success = email_service.send_breaking_news_alert(
+                    to_email=user['email'],
+                    name=user['name'],
+                    article=article_data,
+                    unsubscribe_token=user['unsubscribe_token'],
+                    base_url=base_url
+                )
+
+                if success:
+                    sent_count += 1
+
+            except Exception as e:
+                log.error(f"Error sending breaking news alert to {user['email']}: {e}")
+
+        log.info(f"Breaking news alerts sent: {sent_count} Pro users, {skipped_count} skipped (free tier)")
+
+    except Exception as e:
+        log.error(f"Breaking news check failed: {e}")
+
+# Initialize background scheduler for user cleanup
+scheduler = BackgroundScheduler()
+cleanup_interval = int(os.getenv('EMAIL_CLEANUP_INTERVAL', '3600'))  # Default: 1 hour
+scheduler.add_job(
+    func=cleanup_unverified_users,
+    trigger=IntervalTrigger(seconds=cleanup_interval),
+    id='cleanup_unverified_users',
+    name='Cleanup unverified users older than 12 hours',
+    replace_existing=True
+)
+
+# Add daily digest job at 8:00 AM UTC
+scheduler.add_job(
+    func=send_daily_digest,
+    trigger=CronTrigger(hour=8, minute=0, timezone='UTC'),
+    id='daily_digest',
+    name='Send daily digest at 8:00 AM UTC',
+    replace_existing=True
+)
+
+# Ensure scheduler shuts down gracefully
+atexit.register(lambda: scheduler.shutdown())
 
 # --------------- Auto-Refresh System ---------------
 def start_auto_refresh():
@@ -826,6 +1099,449 @@ def _build_summary_html(nid: int, ai: Dict[str, Any]) -> str:
 def index():
     return render_template("index.html")
 
+# ================= Gamification Routes ====================
+@app.route("/dashboard")
+@login_required
+def dashboard():
+    """Gamification dashboard - user stats, badges, progress"""
+    from gamification import (
+        get_user_gamification,
+        get_user_badges,
+        get_subscription_info,
+        LEVEL_THRESHOLDS
+    )
+
+    db = get_db()
+    stats = get_user_gamification(db, current_user.id)
+    badges = get_user_badges(db, current_user.id)
+    subscription = get_subscription_info(db, current_user.id)
+
+    # Calculate progress to next level
+    current_level = stats['level']
+    current_points = stats['points']
+
+    if current_level < len(LEVEL_THRESHOLDS):
+        next_level_points = LEVEL_THRESHOLDS[current_level]
+        current_level_points = LEVEL_THRESHOLDS[current_level - 1] if current_level > 1 else 0
+        points_needed = next_level_points - current_points
+        progress_percent = int(((current_points - current_level_points) / (next_level_points - current_level_points)) * 100)
+    else:
+        next_level_points = current_points
+        points_needed = 0
+        progress_percent = 100
+
+    # Get recent activity
+    cursor = db.cursor()
+    cursor.execute("""
+        SELECT activity_type, points_awarded, description, created_at
+        FROM gamification_activities
+        WHERE user_id = ?
+        ORDER BY created_at DESC
+        LIMIT 10
+    """, (current_user.id,))
+    recent_activity = [dict(row) for row in cursor.fetchall()]
+
+    return render_template("dashboard.html",
+                         stats=stats,
+                         badges=badges,
+                         subscription=subscription,
+                         next_level_points=next_level_points,
+                         points_needed=points_needed,
+                         progress_percent=progress_percent,
+                         recent_activity=recent_activity)
+
+@app.route("/upgrade")
+@login_required
+def upgrade():
+    """Pro upgrade/pricing page"""
+    from gamification import get_subscription_info
+
+    db = get_db()
+    subscription = get_subscription_info(db, current_user.id)
+
+    return render_template("upgrade.html", subscription=subscription)
+
+@app.route("/leaderboard")
+def leaderboard():
+    """Public leaderboard - top users by points"""
+    from gamification import get_leaderboard
+
+    db = get_db()
+    top_users = get_leaderboard(db, limit=20)
+
+    # Get current user's rank if logged in
+    user_rank = None
+    if current_user.is_authenticated:
+        cursor = db.cursor()
+        cursor.execute("""
+            SELECT COUNT(*) + 1 as rank
+            FROM user_gamification
+            WHERE points > (SELECT points FROM user_gamification WHERE user_id = ?)
+        """, (current_user.id,))
+        result = cursor.fetchone()
+        user_rank = result['rank'] if result else None
+
+    return render_template("leaderboard.html", top_users=top_users, user_rank=user_rank)
+
+@app.route("/badges")
+def badges():
+    """Badge showcase - all available badges"""
+    db = get_db()
+    cursor = db.cursor()
+
+    # Get all badges
+    cursor.execute("""
+        SELECT id, name, description, icon, requirement_type, requirement_value, tier
+        FROM badges
+        ORDER BY tier, requirement_value ASC
+    """)
+    all_badges = [dict(row) for row in cursor.fetchall()]
+
+    # If logged in, mark which badges user has earned
+    earned_badge_ids = set()
+    if current_user.is_authenticated:
+        from gamification import get_user_badges
+        user_badges = get_user_badges(db, current_user.id)
+        earned_badge_ids = {badge['id'] for badge in user_badges}
+
+    # Add earned status to each badge
+    for badge in all_badges:
+        badge['earned'] = badge['id'] in earned_badge_ids
+
+    return render_template("badges.html", badges=all_badges)
+
+@app.route("/saved")
+@login_required
+def saved_articles():
+    """User's saved articles page"""
+    from pro_features import get_saved_articles, check_saved_articles_limit
+    from gamification import get_subscription_info
+
+    db = get_db()
+    articles = get_saved_articles(db, current_user.id, limit=50)
+    can_save, current_count, limit = check_saved_articles_limit(db, current_user.id)
+    subscription = get_subscription_info(db, current_user.id)
+
+    return render_template("saved_articles.html",
+                          articles=articles,
+                          current_count=current_count,
+                          limit=limit,
+                          can_save=can_save,
+                          subscription=subscription)
+
+# ================= Contact Directory Routes ====================
+
+@app.route("/contacts")
+@login_required
+def contacts():
+    """Contact directory page - browse all extracted contacts"""
+    from contact_manager import (
+        get_all_contacts,
+        get_contact_stats,
+        get_top_companies,
+        check_saved_contacts_limit,
+        get_saved_contacts
+    )
+    from gamification import get_subscription_info
+
+    db = get_db()
+
+    # Get query parameters
+    page = max(1, int(request.args.get('page', 1)))
+    limit = 50
+    offset = (page - 1) * limit
+    search = request.args.get('search', '').strip()
+    company_filter = request.args.get('company', '').strip()
+    min_confidence = float(request.args.get('min_confidence', 0))
+
+    # Get contacts
+    contacts = get_all_contacts(
+        db,
+        limit=limit,
+        offset=offset,
+        search=search if search else None,
+        company_filter=company_filter if company_filter else None,
+        min_confidence=min_confidence
+    )
+
+    # Get total count for pagination
+    cursor = db.cursor()
+    count_query = "SELECT COUNT(*) as total FROM contacts WHERE 1=1"
+    count_params = []
+
+    if search:
+        count_query += " AND (name LIKE ? OR company LIKE ? OR title LIKE ?)"
+        search_term = f"%{search}%"
+        count_params.extend([search_term, search_term, search_term])
+
+    if company_filter:
+        count_query += " AND company = ?"
+        count_params.append(company_filter)
+
+    if min_confidence > 0:
+        count_query += " AND confidence_score >= ?"
+        count_params.append(min_confidence)
+
+    cursor.execute(count_query, count_params)
+    total_contacts = cursor.fetchone()['total']
+
+    # Get statistics
+    stats = get_contact_stats(db)
+    top_companies = get_top_companies(db, limit=20)
+
+    # Get saved contact limit info
+    can_save_more, saved_count, saved_limit = check_saved_contacts_limit(db, current_user.id)
+
+    # Get IDs of saved contacts
+    saved_contacts = get_saved_contacts(db, current_user.id)
+    saved_contact_ids = {contact['id'] for contact in saved_contacts}
+
+    subscription = get_subscription_info(db, current_user.id)
+
+    return render_template("contacts.html",
+                          contacts=contacts,
+                          stats=stats,
+                          top_companies=top_companies,
+                          page=page,
+                          limit=limit,
+                          total_contacts=total_contacts,
+                          search=search,
+                          company_filter=company_filter,
+                          min_confidence=min_confidence,
+                          can_save_more=can_save_more,
+                          saved_count=saved_count,
+                          saved_limit=saved_limit,
+                          saved_contact_ids=saved_contact_ids,
+                          subscription=subscription)
+
+@app.route("/contacts/saved")
+@login_required
+def saved_contacts():
+    """User's saved contacts page"""
+    from contact_manager import get_saved_contacts, check_saved_contacts_limit
+    from gamification import get_subscription_info
+
+    db = get_db()
+    contacts = get_saved_contacts(db, current_user.id, limit=100)
+    can_save, current_count, limit = check_saved_contacts_limit(db, current_user.id)
+    subscription = get_subscription_info(db, current_user.id)
+
+    return render_template("saved_contacts.html",
+                          contacts=contacts,
+                          current_count=current_count,
+                          limit=limit,
+                          can_save=can_save,
+                          subscription=subscription)
+
+@app.route("/contacts/<int:contact_id>")
+@login_required
+def contact_profile(contact_id):
+    """Contact profile page - detailed view of a single contact"""
+    from contact_manager import (
+        get_contact_by_id,
+        get_contact_mentions,
+        is_contact_saved,
+        check_saved_contacts_limit
+    )
+    from gamification import get_subscription_info
+
+    db = get_db()
+
+    # Get contact details
+    contact = get_contact_by_id(db, contact_id)
+    if not contact:
+        flash("Contact not found", "error")
+        return redirect(url_for('contacts'))
+
+    # Get article mentions
+    mentions = get_contact_mentions(db, contact_id, limit=50)
+
+    # Check if contact is saved
+    is_saved = is_contact_saved(db, current_user.id, contact_id)
+
+    # Check if user can save more
+    can_save, _, _ = check_saved_contacts_limit(db, current_user.id)
+
+    subscription = get_subscription_info(db, current_user.id)
+
+    return render_template("contact_profile.html",
+                          contact=contact,
+                          mentions=mentions,
+                          is_saved=is_saved,
+                          can_save=can_save,
+                          subscription=subscription)
+
+@app.route("/api/articles/<int:article_id>/save", methods=["POST"])
+@login_required
+def api_save_article(article_id):
+    """Save an article"""
+    from pro_features import save_article
+
+    db = get_db()
+    success, message = save_article(db, current_user.id, article_id)
+
+    if success:
+        return jsonify({"success": True, "message": message}), 200
+    else:
+        # Check if it's a limit error
+        if "limit" in message.lower() or "upgrade" in message.lower():
+            return jsonify({
+                "success": False,
+                "message": message,
+                "upgrade_required": True
+            }), 403
+        return jsonify({"success": False, "message": message}), 400
+
+@app.route("/api/articles/<int:article_id>/unsave", methods=["POST", "DELETE"])
+@login_required
+def api_unsave_article(article_id):
+    """Unsave an article"""
+    from pro_features import unsave_article
+
+    db = get_db()
+    success, message = unsave_article(db, current_user.id, article_id)
+
+    if success:
+        return jsonify({"success": True, "message": message}), 200
+    return jsonify({"success": False, "message": message}), 400
+
+# ============================================================================
+# CONTACT API ROUTES
+# ============================================================================
+
+@app.route("/api/contacts/<int:contact_id>/save", methods=["POST"])
+@login_required
+def api_save_contact(contact_id):
+    """Save a contact for the current user"""
+    from contact_manager import save_contact
+
+    db = get_db()
+    payload = request.get_json(silent=True) or {}
+    notes = payload.get('notes', '')
+
+    success, message = save_contact(db, current_user.id, contact_id, notes)
+
+    if success:
+        return jsonify({"success": True, "message": message}), 200
+
+    # Check if limit reached
+    if "limit" in message.lower() or "upgrade" in message.lower():
+        return jsonify({
+            "success": False,
+            "message": message,
+            "upgrade_required": True
+        }), 403
+    return jsonify({"success": False, "message": message}), 400
+
+@app.route("/api/contacts/<int:contact_id>/unsave", methods=["POST", "DELETE"])
+@login_required
+def api_unsave_contact(contact_id):
+    """Unsave a contact"""
+    from contact_manager import unsave_contact
+
+    db = get_db()
+    success, message = unsave_contact(db, current_user.id, contact_id)
+
+    if success:
+        return jsonify({"success": True, "message": message}), 200
+    return jsonify({"success": False, "message": message}), 400
+
+@app.route("/api/contacts/<int:contact_id>/notes", methods=["POST"])
+@login_required
+def api_update_contact_notes(contact_id):
+    """Update notes for a saved contact"""
+    from contact_manager import update_saved_contact_notes
+
+    db = get_db()
+    payload = request.get_json(silent=True) or {}
+    notes = payload.get('notes', '')
+
+    success, message = update_saved_contact_notes(db, current_user.id, contact_id, notes)
+
+    if success:
+        return jsonify({"success": True, "message": message}), 200
+    return jsonify({"success": False, "message": message}), 400
+
+@app.route("/api/contacts/export/<format>", methods=["GET"])
+@login_required
+def api_export_contacts(format):
+    """Export saved contacts to CSV or vCard (Pro feature)"""
+    from contact_manager import export_contacts_to_csv, export_contacts_to_vcard
+    from gamification import is_pro_user
+
+    db = get_db()
+
+    # Check if user is Pro
+    if not is_pro_user(db, current_user.id):
+        flash("Contact export is a Pro feature. Upgrade to export your contacts!", "error")
+        return redirect(url_for('upgrade'))
+
+    if format == 'csv':
+        csv_data = export_contacts_to_csv(db, current_user.id)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        return send_file(
+            io.BytesIO(csv_data.encode('utf-8')),
+            mimetype='text/csv',
+            as_attachment=True,
+            download_name=f'aviation_contacts_{timestamp}.csv'
+        )
+    elif format == 'vcard':
+        vcard_data = export_contacts_to_vcard(db, current_user.id)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        return send_file(
+            io.BytesIO(vcard_data.encode('utf-8')),
+            mimetype='text/vcard',
+            as_attachment=True,
+            download_name=f'aviation_contacts_{timestamp}.vcf'
+        )
+    else:
+        return jsonify({"error": "Invalid format. Use 'csv' or 'vcard'"}), 400
+
+@app.route("/api/contacts/<int:contact_id>/export/<format>", methods=["GET"])
+@login_required
+def api_export_single_contact(contact_id, format):
+    """Export a single contact to CSV or vCard (Pro feature)"""
+    from contact_manager import export_contacts_to_csv, export_contacts_to_vcard
+    from gamification import is_pro_user
+
+    db = get_db()
+
+    # Check if user is Pro
+    if not is_pro_user(db, current_user.id):
+        return jsonify({"error": "Contact export is a Pro feature"}), 403
+
+    if format == 'csv':
+        csv_data = export_contacts_to_csv(db, current_user.id, [contact_id])
+        return send_file(
+            io.BytesIO(csv_data.encode('utf-8')),
+            mimetype='text/csv',
+            as_attachment=True,
+            download_name=f'contact_{contact_id}.csv'
+        )
+    elif format == 'vcard':
+        vcard_data = export_contacts_to_vcard(db, current_user.id, [contact_id])
+        return send_file(
+            io.BytesIO(vcard_data.encode('utf-8')),
+            mimetype='text/vcard',
+            as_attachment=True,
+            download_name=f'contact_{contact_id}.vcf'
+        )
+    else:
+        return jsonify({"error": "Invalid format"}), 400
+
+@app.route("/api/contacts/<int:contact_id>/sync", methods=["POST"])
+@login_required
+def api_sync_contact_to_aviation(contact_id):
+    """Sync contact to Aviation.Contact platform (placeholder)"""
+    # TODO: Implement Aviation.Contact API integration
+    # For now, return a placeholder response
+    log.info(f"Aviation.Contact sync requested for contact {contact_id} by user {current_user.id}")
+
+    return jsonify({
+        "success": False,
+        "message": "Aviation.Contact integration coming soon! This feature will sync your contacts to the Aviation.Contact networking platform."
+    }), 501  # Not Implemented
+
 def _truthy(v) -> bool:
     if v is None:
         return False
@@ -1229,6 +1945,7 @@ def _call_worker(items: List[Dict[str, Any]], batch_num: int = 0) -> Dict[str, A
 
 @app.route("/api/ai/summarize", methods=["POST"])
 @limiter.limit("10 per minute")
+@login_required
 def api_ai_summarize():
     """Generate AI summaries for news items"""
     if not config.CF_WORKER_URL or not config.CF_WORKER_TOKEN:
@@ -1237,6 +1954,19 @@ def api_ai_summarize():
     db = get_db()
     cur = db.cursor()
     payload = request.get_json(silent=True) or {}
+
+    # Check AI summary limit (Free: 10/day, Pro: unlimited)
+    from pro_features import check_ai_summary_limit, record_ai_summary_usage
+    can_generate, used_today, limit = check_ai_summary_limit(db, current_user.id)
+
+    if not can_generate:
+        return jsonify({
+            "error": f"Daily AI summary limit reached ({used_today}/{limit})",
+            "upgrade_required": True,
+            "message": "Upgrade to Pro for unlimited AI summaries",
+            "used_today": used_today,
+            "limit": limit
+        }), 403
 
     items: List[Dict[str, Any]] = []
     if isinstance(payload.get("items"), list) and payload["items"]:
@@ -1380,11 +2110,47 @@ def api_ai_summarize():
 
                 if do_update:
                     conn_cur.execute("UPDATE news_items SET ai_summary = ? WHERE id = ?", (ai_json_str, nid))
+                    # Record AI summary usage for limit tracking
+                    if not existing_ai:  # Only count new summaries
+                        record_ai_summary_usage(conn, current_user.id, nid)
                 else:
                     if not existing_ai:
                         conn_cur.execute("UPDATE news_items SET ai_summary = ? WHERE id = ?", (ai_json_str, nid))
+                        record_ai_summary_usage(conn, current_user.id, nid)
+
+                # Extract contacts from newly summarized articles
+                if not existing_ai:  # Only extract from new summaries
+                    try:
+                        from contact_extractor import process_article_for_contacts
+                        contact_count = process_article_for_contacts(
+                            conn,
+                            nid,
+                            orig_row.get('airline', ''),
+                            orig_row.get('content', ''),
+                            ai_json_str
+                        )
+                        if contact_count > 0:
+                            log.info(f"Extracted {contact_count} contacts from article {nid}")
+                    except Exception as e:
+                        log.error(f"Contact extraction failed for article {nid}: {e}")
 
                 updated += 1
+
+                # Check for breaking news after AI summary is added
+                if not existing_ai:  # Only check new summaries
+                    try:
+                        article_data = {
+                            'title': orig_row.get('airline', 'Breaking News'),
+                            'url': orig_row.get('source', ''),
+                            'source': orig_row.get('source', ''),
+                            'ai_summary': short_snip,
+                            'sentiment': orig_row.get('sentiment', 0),
+                            'published_date': orig_row.get('date', '')
+                        }
+                        # Run breaking news check in background thread to avoid blocking
+                        threading.Thread(target=check_and_send_breaking_news, args=(article_data,), daemon=True).start()
+                    except Exception as e:
+                        log.error(f"Error triggering breaking news check: {e}")
 
                 _emit_summary_events(nid, ai_json_str, short_snip)
 
@@ -1453,9 +2219,147 @@ def api_ai_updates():
         }
     )
 
+# ================= RevenueCat Webhook Handler ====================
+@app.route("/webhooks/revenuecat", methods=["POST"])
+def revenuecat_webhook():
+    """
+    Handle RevenueCat subscription webhooks
+    Processes subscription events: purchases, renewals, cancellations, etc.
+    """
+    try:
+        # Verify webhook authorization
+        auth_header = request.headers.get("Authorization")
+        expected_token = os.getenv("REVENUECAT_WEBHOOK_SECRET")
+
+        if expected_token and auth_header != f"Bearer {expected_token}":
+            log.warning(f"RevenueCat webhook: Invalid authorization from {get_client_ip(request)}")
+            return jsonify({"error": "Unauthorized"}), 401
+
+        # Parse webhook payload
+        payload = request.get_json()
+        if not payload:
+            log.error("RevenueCat webhook: Empty payload")
+            return jsonify({"error": "Empty payload"}), 400
+
+        event_type = payload.get("type")
+        event = payload.get("event")
+
+        if not event_type or not event:
+            log.error(f"RevenueCat webhook: Missing event type or event data: {payload}")
+            return jsonify({"error": "Invalid payload"}), 400
+
+        log.info(f"RevenueCat webhook received: {event_type}")
+
+        # Extract common fields
+        app_user_id = event.get("app_user_id")  # This is our revenuecat_user_id
+        product_id = event.get("product_id")
+
+        # Parse timestamps
+        purchased_at_ms = event.get("purchased_at_ms")
+        expiration_at_ms = event.get("expiration_at_ms")
+
+        purchased_at = datetime.fromtimestamp(purchased_at_ms / 1000.0) if purchased_at_ms else None
+        expiration_at = datetime.fromtimestamp(expiration_at_ms / 1000.0) if expiration_at_ms else None
+
+        is_trial_period = event.get("is_trial_period", False)
+
+        # Store raw payload for debugging
+        raw_data = json.dumps(payload)
+
+        # Get database connection
+        db = get_thread_db()
+
+        # Import gamification functions
+        from gamification import (
+            get_user_by_revenuecat_id,
+            upgrade_to_pro,
+            downgrade_to_free,
+            log_subscription_event
+        )
+
+        # Find user by RevenueCat ID
+        user_id = get_user_by_revenuecat_id(db, app_user_id)
+
+        if not user_id:
+            log.warning(f"RevenueCat webhook: User not found for revenuecat_id: {app_user_id}")
+            # Log event anyway for debugging
+            log_subscription_event(
+                db, None, event_type, app_user_id,
+                product_id=product_id,
+                purchased_at=purchased_at,
+                expiration_at=expiration_at,
+                is_trial=is_trial_period,
+                raw_data=raw_data
+            )
+            db.close()
+            return jsonify({"status": "ok", "message": "User not found, event logged"}), 200
+
+        # Handle different event types
+        if event_type in ["INITIAL_PURCHASE", "RENEWAL"]:
+            # Upgrade to pro
+            upgrade_to_pro(
+                db, user_id, app_user_id,
+                is_trial=is_trial_period,
+                subscription_end=expiration_at
+            )
+            log.info(f"User {user_id} upgraded to Pro via {event_type}")
+
+        elif event_type in ["CANCELLATION", "EXPIRATION"]:
+            # Downgrade to free
+            downgrade_to_free(db, user_id)
+            log.info(f"User {user_id} downgraded to Free via {event_type}")
+
+        elif event_type == "BILLING_ISSUE":
+            # Mark subscription as having billing issues
+            cursor = db.cursor()
+            cursor.execute("""
+                UPDATE users
+                SET subscription_status = 'expired'
+                WHERE id = ?
+            """, (user_id,))
+            db.commit()
+            log.warning(f"User {user_id} has billing issues")
+
+        elif event_type == "PRODUCT_CHANGE":
+            # Handle product changes (upgrade/downgrade)
+            new_product_id = event.get("new_product_id")
+            log.info(f"User {user_id} changed product to {new_product_id}")
+            # For now, just refresh the subscription
+            if expiration_at:
+                upgrade_to_pro(db, user_id, app_user_id, subscription_end=expiration_at)
+
+        # Log the event
+        log_subscription_event(
+            db, user_id, event_type, app_user_id,
+            product_id=product_id,
+            purchased_at=purchased_at,
+            expiration_at=expiration_at,
+            is_trial=is_trial_period,
+            raw_data=raw_data
+        )
+
+        db.close()
+
+        return jsonify({"status": "ok"}), 200
+
+    except Exception as e:
+        log.exception(f"RevenueCat webhook error: {e}")
+        return jsonify({"error": "Internal server error"}), 500
+
 if __name__ == "__main__":
     init_db()
     ensure_ai_summary_column()
+
+    # Initialize user authentication tables
+    with app.app_context():
+        db = get_db()
+        init_user_tables(db)
+        log.info("User authentication tables initialized")
+
+    # Start background jobs
     start_auto_refresh()
+    scheduler.start()
+    log.info(f"Background cleanup job started (runs every {cleanup_interval} seconds)")
+
     log.info(f"Starting Aviation Intelligence Hub on {config.HOST}:{config.PORT}")
     app.run(host=config.HOST, port=config.PORT, debug=config.DEBUG, threaded=True)

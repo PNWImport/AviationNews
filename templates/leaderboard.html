@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leaderboard - Aviation Intelligence Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .rank-gold { background: linear-gradient(135deg, #FFD700, #FFA500); }
+        .rank-silver { background: linear-gradient(135deg, #C0C0C0, #A8A8A8); }
+        .rank-bronze { background: linear-gradient(135deg, #CD7F32, #B8860B); }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-900 via-blue-700 to-orange-500 min-h-screen p-4">
+    <div class="max-w-4xl mx-auto py-8">
+        <!-- Header -->
+        <div class="bg-white rounded-2xl shadow-2xl overflow-hidden fade-in mb-6">
+            <div class="bg-gradient-to-r from-blue-600 to-orange-500 p-4 sm:p-6">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                        <h1 class="text-2xl sm:text-3xl font-bold text-white mb-1">🏅 Leaderboard</h1>
+                        <p class="text-sm sm:text-base text-blue-100">Top aviation intelligence enthusiasts</p>
+                    </div>
+                    <a href="/" class="text-white hover:text-blue-100 transition-colors flex-shrink-0 self-end sm:self-auto">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                        </svg>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Your Rank (if logged in) -->
+            {% if user_rank %}
+            <div class="p-4 bg-blue-50 border-b border-blue-200">
+                <div class="flex items-center justify-between">
+                    <span class="text-sm sm:text-base text-blue-900 font-semibold">Your Rank:</span>
+                    <div class="flex items-center gap-2">
+                        <span class="text-2xl sm:text-3xl font-bold text-blue-600">#{{ user_rank }}</span>
+                        <a href="/dashboard" class="text-blue-600 hover:text-blue-800 text-sm font-semibold hover:underline">
+                            View Dashboard →
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Leaderboard List -->
+            <div class="p-4 sm:p-6">
+                {% if top_users %}
+                <div class="space-y-3">
+                    {% for user in top_users %}
+                    <div class="{% if loop.index == 1 %}rank-gold{% elif loop.index == 2 %}rank-silver{% elif loop.index == 3 %}rank-bronze{% else %}bg-white border border-gray-200{% endif %} rounded-xl p-4 shadow hover:shadow-lg transition-shadow">
+                        <div class="flex items-center gap-4">
+                            <!-- Rank -->
+                            <div class="flex-shrink-0 w-12 h-12 sm:w-16 sm:h-16 flex items-center justify-center">
+                                {% if loop.index == 1 %}
+                                <div class="text-3xl sm:text-4xl">🥇</div>
+                                {% elif loop.index == 2 %}
+                                <div class="text-3xl sm:text-4xl">🥈</div>
+                                {% elif loop.index == 3 %}
+                                <div class="text-3xl sm:text-4xl">🥉</div>
+                                {% else %}
+                                <div class="text-xl sm:text-2xl font-bold text-gray-600">#{{ loop.index }}</div>
+                                {% endif %}
+                            </div>
+
+                            <!-- User Info -->
+                            <div class="flex-1 min-w-0">
+                                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                    <div class="min-w-0">
+                                        <h3 class="font-bold text-base sm:text-lg {% if loop.index <= 3 %}text-white{% else %}text-gray-900{% endif %} truncate">
+                                            {{ user.name }}
+                                        </h3>
+                                        <div class="flex flex-wrap items-center gap-2 sm:gap-3 text-xs sm:text-sm {% if loop.index <= 3 %}text-white opacity-90{% else %}text-gray-600{% endif %}">
+                                            <span>Level {{ user.level }}</span>
+                                            <span class="hidden sm:inline">•</span>
+                                            <span class="flex items-center gap-1">
+                                                <span>🔥</span>
+                                                <span>{{ user.current_streak }} day streak</span>
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Points -->
+                                    <div class="flex-shrink-0">
+                                        <div class="bg-white bg-opacity-90 px-3 sm:px-4 py-2 rounded-lg">
+                                            <div class="text-xs text-gray-600">Points</div>
+                                            <div class="text-lg sm:text-xl font-bold text-gray-900">{{ "{:,}".format(user.points) }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="bg-gray-50 border border-gray-200 p-8 sm:p-12 rounded-xl text-center">
+                    <div class="text-5xl sm:text-6xl mb-4">🏆</div>
+                    <h3 class="text-xl sm:text-2xl font-bold text-gray-900 mb-2">Leaderboard Coming Soon</h3>
+                    <p class="text-gray-600">Be among the first to claim your spot!</p>
+                    {% if not current_user.is_authenticated %}
+                    <div class="mt-6">
+                        <a href="{{ url_for('auth.signup') }}" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg transition-all inline-block">
+                            Sign Up Now
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <!-- Info Box -->
+                <div class="mt-8 bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 rounded-xl p-4 sm:p-6">
+                    <h3 class="font-bold text-blue-900 mb-3 text-base sm:text-lg">💡 How Rankings Work</h3>
+                    <ul class="space-y-2 text-sm text-blue-800">
+                        <li class="flex items-start gap-2">
+                            <span class="flex-shrink-0">•</span>
+                            <span><strong>Earn Points:</strong> Login daily (+10), maintain streaks (+25 bonus every 7 days), read articles (+5 each)</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="flex-shrink-0">•</span>
+                            <span><strong>Level Up:</strong> Reach point thresholds to advance through 10 levels</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="flex-shrink-0">•</span>
+                            <span><strong>Win Badges:</strong> Unlock achievements for special activities (+50 points each)</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="flex-shrink-0">•</span>
+                            <span><strong>Go Pro:</strong> Upgrade to Pro for +500 bonus points and exclusive badges</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- CTA Sections -->
+                <div class="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {% if current_user.is_authenticated %}
+                    <a href="/dashboard" class="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-4 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all text-center">
+                        📊 View Your Dashboard
+                    </a>
+                    <a href="/badges" class="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all text-center">
+                        🏆 Unlock Badges
+                    </a>
+                    {% else %}
+                    <a href="{{ url_for('auth.signup') }}" class="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-4 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all text-center">
+                        🚀 Join the Competition
+                    </a>
+                    <a href="{{ url_for('auth.login') }}" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-4 px-6 rounded-xl transition-all text-center">
+                        🔑 Log In
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Footer Links -->
+            <div class="bg-gray-50 p-4 border-t border-gray-200 flex flex-wrap gap-4 justify-center text-sm">
+                <a href="/dashboard" class="text-blue-600 hover:text-blue-800 font-semibold hover:underline">
+                    🎮 Dashboard
+                </a>
+                <a href="/badges" class="text-blue-600 hover:text-blue-800 font-semibold hover:underline">
+                    🏆 Badges
+                </a>
+                <a href="/upgrade" class="text-blue-600 hover:text-blue-800 font-semibold hover:underline">
+                    ⚡ Upgrade to Pro
+                </a>
+                <a href="/" class="text-blue-600 hover:text-blue-800 font-semibold hover:underline">
+                    🏠 Home
+                </a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

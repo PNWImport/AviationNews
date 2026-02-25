@@ -95,3 +95,5 @@ wrangler.toml.local
 node_modules/
 package-lock.json
 .dev.vars
+cookies.txt
+app.log

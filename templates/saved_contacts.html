@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saved Contacts - Aviation Intelligence Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-900 via-blue-700 to-orange-500 min-h-screen p-4">
+    <div class="max-w-6xl mx-auto py-8">
+        <!-- Header -->
+        <div class="bg-white rounded-2xl shadow-2xl overflow-hidden fade-in mb-6">
+            <div class="bg-gradient-to-r from-blue-600 to-orange-500 p-4 sm:p-6">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                        <h1 class="text-2xl sm:text-3xl font-bold text-white mb-1">💾 Saved Contacts</h1>
+                        <p class="text-sm sm:text-base text-blue-100">Your collection of important aviation contacts</p>
+                    </div>
+                    <a href="/contacts" class="text-white hover:text-blue-100 transition-colors flex-shrink-0 self-end sm:self-auto">
+                        ← Back to Directory
+                    </a>
+                </div>
+            </div>
+
+            <!-- Limit Status -->
+            <div class="{% if subscription and subscription.is_pro %}bg-gradient-to-r from-purple-50 to-pink-50 border-b border-purple-200{% else %}bg-yellow-50 border-b border-yellow-200{% endif %} p-4">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                        {% if subscription and subscription.is_pro %}
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-2xl">⚡</span>
+                            <span class="font-bold text-purple-900">Pro Member - Unlimited Saved Contacts</span>
+                        </div>
+                        <p class="text-sm text-purple-700">Save and export as many contacts as you want!</p>
+                        {% else %}
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-2xl">📊</span>
+                            <span class="font-bold text-yellow-900">{{ current_count }} / {{ limit }} Contacts Saved</span>
+                        </div>
+                        <p class="text-sm text-yellow-700">
+                            {% if can_save %}<                                {{ limit - current_count }} slots remaining
+                            {% else %}
+                                Limit reached! Remove contacts or upgrade to Pro
+                            {% endif %}
+                        </p>
+                        {% endif %}
+                    </div>
+
+                    <div class="flex gap-2">
+                        {% if subscription and subscription.is_pro %}
+                        <button onclick="exportContacts('csv')" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-all text-sm">
+                            📊 Export CSV
+                        </button>
+                        <button onclick="exportContacts('vcard')" class="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition-all text-sm">
+                            📇 Export vCard
+                        </button>
+                        {% else %}
+                        <a href="/upgrade" class="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-2 px-4 rounded-lg shadow transition-all text-sm">
+                            ⚡ Upgrade for Export
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="p-4 border-b border-gray-200">
+                        {% for category, message in messages %}
+                            <div class="alert mb-3 p-4 rounded-lg {% if category == 'success' %}bg-green-100 text-green-800 border border-green-200{% elif category == 'error' %}bg-red-100 text-red-800 border border-red-200{% else %}bg-blue-100 text-blue-800 border border-blue-200{% endif %} fade-in">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            <!-- Contacts List -->
+            <div class="p-4 sm:p-6">
+                {% if contacts %}
+                <div class="space-y-4">
+                    {% for contact in contacts %}
+                    <div class="bg-white border-2 border-gray-200 rounded-xl p-4 hover:shadow-lg transition-shadow">
+                        <div class="flex flex-col gap-4">
+                            <!-- Contact Info -->
+                            <div class="flex items-start gap-3">
+                                <div class="text-3xl flex-shrink-0">👤</div>
+                                <div class="flex-1 min-w-0">
+                                    <h3 class="text-lg font-bold text-gray-900 mb-1">
+                                        <a href="/contacts/{{ contact.id }}" class="hover:text-blue-600 hover:underline">
+                                            {{ contact.name }}
+                                        </a>
+                                    </h3>
+
+                                    <div class="flex flex-wrap gap-2 mb-2">
+                                        {% if contact.title %}
+                                        <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
+                                            💼 {{ contact.title }}
+                                        </span>
+                                        {% endif %}
+
+                                        {% if contact.company %}
+                                        <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">
+                                            🏢 {{ contact.company }}
+                                        </span>
+                                        {% endif %}
+
+                                        {% if contact.email %}
+                                        <span class="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded">
+                                            ✉️ {{ contact.email }}
+                                        </span>
+                                        {% endif %}
+                                    </div>
+
+                                    <div class="flex flex-wrap gap-3 text-xs text-gray-600 mb-3">
+                                        <span>📰 {{ contact.mention_count }} mention{{ 's' if contact.mention_count != 1 else '' }}</span>
+                                        <span>💾 Saved: {{ contact.saved_at[:10] }}</span>
+                                        <span>{{ ((contact.confidence_score or 0) * 100)|int }}% confidence</span>
+                                    </div>
+
+                                    <!-- Notes Section -->
+                                    {% if contact.notes %}
+                                    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-3 rounded mt-2">
+                                        <p class="text-sm text-yellow-900">
+                                            <strong>📝 Notes:</strong> {{ contact.notes }}
+                                        </p>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="flex flex-wrap gap-2 pt-2 border-t border-gray-200">
+                                <a href="/contacts/{{ contact.id }}"
+                                   class="bg-blue-100 hover:bg-blue-200 text-blue-800 font-semibold px-4 py-2 rounded-lg transition-all text-sm">
+                                    👁️ View Profile
+                                </a>
+
+                                <button onclick="editNotes({{ contact.id }}, '{{ contact.notes|replace("'", "\\'") if contact.notes else '' }}')"
+                                        class="bg-yellow-100 hover:bg-yellow-200 text-yellow-800 font-semibold px-4 py-2 rounded-lg transition-all text-sm">
+                                    ✏️ Edit Notes
+                                </button>
+
+                                <button onclick="unsaveContact({{ contact.id }})"
+                                        class="bg-red-100 hover:bg-red-200 text-red-800 font-semibold px-4 py-2 rounded-lg transition-all text-sm">
+                                    🗑️ Remove
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="bg-gray-50 border border-gray-200 p-8 sm:p-12 rounded-xl text-center">
+                    <div class="text-5xl sm:text-6xl mb-4">💾</div>
+                    <h3 class="text-xl sm:text-2xl font-bold text-gray-900 mb-2">No Saved Contacts Yet</h3>
+                    <p class="text-gray-600 mb-6">Start saving important aviation industry contacts for quick access later</p>
+                    <a href="/contacts" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg transition-all inline-block">
+                        Browse Contact Directory
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Footer Links -->
+            <div class="bg-gray-50 p-4 border-t border-gray-200 flex flex-wrap gap-4 justify-center text-sm">
+                <a href="/contacts" class="text-blue-600 hover:text-blue-800 font-semibold hover:underline">
+                    💼 Contact Directory
+                </a>
+                <a href="/catalog" class="text-blue-600 hover:text-blue-800 font-semibold hover:underline">
+                    📰 News Catalog
+                </a>
+                <a href="/dashboard" class="text-blue-600 hover:text-blue-800 font-semibold hover:underline">
+                    🎮 Dashboard
+                </a>
+                <a href="/upgrade" class="text-blue-600 hover:text-blue-800 font-semibold hover:underline">
+                    ⚡ Upgrade to Pro
+                </a>
+                <a href="/" class="text-blue-600 hover:text-blue-800 font-semibold hover:underline">
+                    🏠 Home
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function unsaveContact(contactId) {
+            if (!confirm('Remove this contact from your saved collection?')) {
+                return;
+            }
+
+            fetch(`/api/contacts/${contactId}/unsave`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to remove contact');
+            });
+        }
+
+        function editNotes(contactId, currentNotes) {
+            const notes = prompt('Edit notes for this contact:', currentNotes);
+            if (notes === null) return; // User cancelled
+
+            fetch(`/api/contacts/${contactId}/notes`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ notes: notes })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to update notes');
+            });
+        }
+
+        function exportContacts(format) {
+            window.location.href = `/api/contacts/export/${format}`;
+        }
+    </script>
+</body>
+</html>
